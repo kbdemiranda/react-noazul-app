@@ -1,0 +1,92 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { z } from 'zod'
+import type { CreditCardPayload } from '../../api/creditCards'
+import { Button } from '../../components/Button'
+import { ErrorBanner } from '../../components/ErrorBanner'
+import { Field, inputClass } from '../../components/Field'
+import { Modal } from '../../components/Modal'
+import type { CreditCard } from '../../types/domain'
+
+const schema = z.object({
+  name: z.string().min(1, 'Informe um nome'),
+  issuer: z.string().min(1, 'Informe o emissor'),
+  creditLimit: z.coerce.number().positive('Informe um limite maior que zero'),
+  closingDay: z.coerce.number().int().min(1).max(31),
+  dueDay: z.coerce.number().int().min(1).max(31),
+})
+
+type FormInput = z.input<typeof schema>
+type FormValues = z.output<typeof schema>
+
+interface CreditCardFormModalProps {
+  card?: CreditCard
+  onClose: () => void
+  onSubmit: (payload: CreditCardPayload) => Promise<void>
+}
+
+export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormModalProps) {
+  const [submitError, setSubmitError] = useState<unknown>(null)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors, isSubmitting },
+  } = useForm<FormInput, unknown, FormValues>({
+    resolver: zodResolver(schema),
+    defaultValues: card
+      ? {
+          name: card.name,
+          issuer: card.issuer,
+          creditLimit: card.creditLimit,
+          closingDay: card.closingDay,
+          dueDay: card.dueDay,
+        }
+      : { closingDay: 1, dueDay: 10 },
+  })
+
+  const submit = async (values: FormValues) => {
+    setSubmitError(null)
+    try {
+      await onSubmit(values)
+      onClose()
+    } catch (error) {
+      setSubmitError(error)
+    }
+  }
+
+  return (
+    <Modal title={card ? 'Editar cartão' : 'Novo cartão'} onClose={onClose}>
+      <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
+        <Field label="Nome" htmlFor="name" error={errors.name?.message}>
+          <input id="name" className={inputClass} placeholder="Cartão principal" {...register('name')} />
+        </Field>
+        <Field label="Emissor" htmlFor="issuer" error={errors.issuer?.message}>
+          <input id="issuer" className={inputClass} placeholder="Itaucard, Inter..." {...register('issuer')} />
+        </Field>
+        <Field label="Limite" htmlFor="creditLimit" error={errors.creditLimit?.message}>
+          <input id="creditLimit" type="number" step="0.01" className={inputClass} {...register('creditLimit')} />
+        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Dia de fechamento" htmlFor="closingDay" error={errors.closingDay?.message}>
+            <input id="closingDay" type="number" min={1} max={31} className={inputClass} {...register('closingDay')} />
+          </Field>
+          <Field label="Dia de vencimento" htmlFor="dueDay" error={errors.dueDay?.message}>
+            <input id="dueDay" type="number" min={1} max={31} className={inputClass} {...register('dueDay')} />
+          </Field>
+        </div>
+
+        {Boolean(submitError) && <ErrorBanner error={submitError} />}
+
+        <div className="mt-2 flex justify-end gap-2">
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancelar
+          </Button>
+          <Button type="submit" isLoading={isSubmitting}>
+            Salvar
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
