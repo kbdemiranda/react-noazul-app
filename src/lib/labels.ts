@@ -10,4 +10,5 @@ export const accountTypeLabels: Record<AccountType, string> = {
 export const flowTypeLabels: Record<FlowType, string> = {
   INCOME: 'Receita',
   EXPENSE: 'Despesa',
+  TRANSFER: 'Transferência',
 }

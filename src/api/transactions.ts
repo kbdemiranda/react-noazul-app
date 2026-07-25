@@ -12,6 +12,7 @@ export interface TransactionPayload {
   categoryUuid: string
   fromAccountUuid?: string | null
   fromCreditCardUuid?: string | null
+  toAccountUuid?: string | null
 }
 
 export const transactionsApi = {

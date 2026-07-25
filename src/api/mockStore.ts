@@ -62,6 +62,13 @@ const archivedTransactionUuids = new Set<string>()
 const attachmentsByTransaction = new Map<string, Attachment[]>()
 
 function adjustAccountBalance(transaction: Transaction, sign: 1 | -1): void {
+  if (transaction.type === 'TRANSFER') {
+    const from = transaction.fromAccountUuid ? accounts.find((a) => a.uuid === transaction.fromAccountUuid) : undefined
+    const to = transaction.toAccountUuid ? accounts.find((a) => a.uuid === transaction.toAccountUuid) : undefined
+    if (from) from.balance -= transaction.amount * sign
+    if (to) to.balance += transaction.amount * sign
+    return
+  }
   if (!transaction.fromAccountUuid) return
   const account = accounts.find((a) => a.uuid === transaction.fromAccountUuid)
   if (!account) return
@@ -197,6 +204,7 @@ export const mockTransactions = {
     const creditCard = payload.fromCreditCardUuid
       ? creditCards.find((c) => c.uuid === payload.fromCreditCardUuid)
       : undefined
+    const toAccount = payload.toAccountUuid ? accounts.find((a) => a.uuid === payload.toAccountUuid) : undefined
     const now = new Date().toISOString()
     const transaction: Transaction = {
       uuid: uuid(),
@@ -211,8 +219,8 @@ export const mockTransactions = {
       fromAccountName: account?.name ?? null,
       fromCreditCardUuid: creditCard?.uuid ?? null,
       fromCreditCardName: creditCard?.name ?? null,
-      toAccountUuid: null,
-      toAccountName: null,
+      toAccountUuid: toAccount?.uuid ?? null,
+      toAccountName: toAccount?.name ?? null,
       createdAt: now,
       updatedAt: now,
     }
@@ -231,6 +239,7 @@ export const mockTransactions = {
     const creditCard = payload.fromCreditCardUuid
       ? creditCards.find((c) => c.uuid === payload.fromCreditCardUuid)
       : undefined
+    const toAccount = payload.toAccountUuid ? accounts.find((a) => a.uuid === payload.toAccountUuid) : undefined
 
     const updated: Transaction = {
       ...previous,
@@ -245,6 +254,8 @@ export const mockTransactions = {
       fromAccountName: account?.name ?? null,
       fromCreditCardUuid: creditCard?.uuid ?? null,
       fromCreditCardName: creditCard?.name ?? null,
+      toAccountUuid: toAccount?.uuid ?? null,
+      toAccountName: toAccount?.name ?? null,
       updatedAt: new Date().toISOString(),
     }
     transactions[index] = updated

@@ -1,6 +1,6 @@
 // Mirrors java-noazul-api's enums and DTOs (com.noazul.api.model / com.noazul.api.dto).
 
-export type FlowType = 'INCOME' | 'EXPENSE'
+export type FlowType = 'INCOME' | 'EXPENSE' | 'TRANSFER'
 
 export type AccountType = 'CHECKING' | 'SAVINGS' | 'DIGITAL_WALLET' | 'OTHER'
 

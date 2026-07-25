@@ -1,3 +1,6 @@
+import { format } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
+
 const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
 
 export function formatCurrency(value: string | number): string {
@@ -22,4 +25,18 @@ export function formatFileSize(bytes: number): string {
 
 export function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10)
+}
+
+export function formatFullDatePtBR(date: Date): string {
+  const formatted = format(date, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+}
+
+export function formatMonthYearPtBR(date: Date): string {
+  const formatted = format(date, 'MMMM', { locale: ptBR })
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1)
+}
+
+export function formatShortDatePtBR(date: Date): string {
+  return format(date, 'dd/MM')
 }
