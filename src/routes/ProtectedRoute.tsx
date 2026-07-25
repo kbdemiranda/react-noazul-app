@@ -7,7 +7,7 @@ export function ProtectedRoute() {
 
   if (isBootstrapping) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-page text-ink/60">
+      <div className="flex min-h-screen items-center justify-center text-ink/60">
         Carregando...
       </div>
     )

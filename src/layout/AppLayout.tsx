@@ -18,8 +18,8 @@ export function AppLayout() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
 
   return (
-    <div className="min-h-screen bg-page">
-      <header className="border-b border-black/[.08]">
+    <div className="min-h-screen">
+      <header className="glass-surface sticky top-0 z-20 border-x-0 border-t-0">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3.5 md:gap-6 md:px-6">
           <span className="flex items-center gap-2 font-heading text-base font-semibold text-ink">
             <BrandMark size={20} />
