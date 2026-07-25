@@ -9,16 +9,19 @@ import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { SegmentedControl } from '../../components/SegmentedControl'
-import { CategoryIconBadge } from '../../lib/categoryIcons'
+import { WarningBanner } from '../../components/WarningBanner'
+import { CategoryIconBadge, categoryColor } from '../../lib/categoryIcons'
+import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate } from '../../lib/format'
 import { TransactionFormModal } from './TransactionFormModal'
 
-type Filter = 'ALL' | 'INCOME' | 'EXPENSE'
+type Filter = 'ALL' | 'INCOME' | 'EXPENSE' | 'TRANSFER'
 
 const filterOptions: { value: Filter; label: string }[] = [
   { value: 'ALL', label: 'Todas' },
   { value: 'EXPENSE', label: 'Despesas' },
   { value: 'INCOME', label: 'Receitas' },
+  { value: 'TRANSFER', label: 'Transferências' },
 ]
 
 export function TransactionsPage() {
@@ -61,7 +64,7 @@ export function TransactionsPage() {
       </div>
 
       {!canCreate && isReady && (
-        <ErrorBanner error={new Error('Cadastre uma conta ou cartão antes de lançar uma transação.')} />
+        <WarningBanner>Cadastre uma conta ou cartão antes de lançar uma transação.</WarningBanner>
       )}
 
       <SegmentedControl name="filtro" options={filterOptions} value={filter} onChange={setFilter} className="w-fit" />
@@ -86,28 +89,27 @@ export function TransactionsPage() {
       {sorted.length > 0 && (
         <>
           <div className="flex flex-col gap-2 lg:hidden">
-            {sorted.map((transaction) => (
-              <Link key={transaction.uuid} to={`/transacoes/${transaction.uuid}`}>
-                <Card className="flex items-center gap-3 transition-shadow hover:shadow-md">
-                  <CategoryIconBadge name={transaction.categoryName} type={transaction.type} />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm text-ink">{transaction.description}</p>
-                    <p className="text-xs text-ink/60">
-                      {transaction.categoryName} · {transaction.fromAccountName ?? transaction.fromCreditCardName} ·{' '}
-                      {formatDate(transaction.date)}
+            {sorted.map((transaction) => {
+              const tone = flowTone(transaction.type)
+              return (
+                <Link key={transaction.uuid} to={`/transacoes/${transaction.uuid}`}>
+                  <Card className="flex items-center gap-3 transition-shadow hover:shadow-md">
+                    <CategoryIconBadge name={transaction.categoryName} type={transaction.type} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm text-ink">{transaction.description}</p>
+                      <p className="text-xs text-ink/60">
+                        {transaction.categoryName} · {transaction.fromAccountName ?? transaction.fromCreditCardName} ·{' '}
+                        {formatDate(transaction.date)}
+                      </p>
+                    </div>
+                    <p className={`font-heading text-sm tabular-nums ${tone.text}`}>
+                      {tone.sign}
+                      {formatCurrency(transaction.amount)}
                     </p>
-                  </div>
-                  <p
-                    className={`font-heading text-sm tabular-nums ${
-                      transaction.type === 'EXPENSE' ? 'text-expense' : 'text-income'
-                    }`}
-                  >
-                    {transaction.type === 'EXPENSE' ? '-' : '+'}
-                    {formatCurrency(transaction.amount)}
-                  </p>
-                </Card>
-              </Link>
-            ))}
+                  </Card>
+                </Link>
+              )
+            })}
           </div>
 
           <div className="glass-surface hidden overflow-hidden rounded-2xl shadow-sm lg:block">
@@ -122,34 +124,32 @@ export function TransactionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((transaction) => (
-                  <tr
-                    key={transaction.uuid}
-                    className="cursor-pointer border-b border-black/[.06] last:border-b-0 hover:bg-black/[.03]"
-                    onClick={() => navigate(`/transacoes/${transaction.uuid}`)}
-                  >
-                    <td className="px-4 py-2.5">{transaction.description}</td>
-                    <td className="px-4 py-2.5">
-                      <span
-                        className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                          transaction.type === 'EXPENSE' ? 'bg-expense-vivid/12 text-expense' : 'bg-income-vivid/12 text-income'
-                        }`}
-                      >
-                        {transaction.categoryName}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5">{transaction.fromAccountName ?? transaction.fromCreditCardName}</td>
-                    <td className="px-4 py-2.5">{formatDate(transaction.date)}</td>
-                    <td
-                      className={`px-4 py-2.5 text-right font-heading tabular-nums ${
-                        transaction.type === 'EXPENSE' ? 'text-expense' : 'text-income'
-                      }`}
+                {sorted.map((transaction) => {
+                  const tone = flowTone(transaction.type)
+                  const { text: categoryText, bg: categoryBg } = categoryColor(transaction.categoryName, transaction.type)
+                  return (
+                    <tr
+                      key={transaction.uuid}
+                      className="cursor-pointer border-b border-black/[.06] last:border-b-0 hover:bg-black/[.03]"
+                      onClick={() => navigate(`/transacoes/${transaction.uuid}`)}
                     >
-                      {transaction.type === 'EXPENSE' ? '-' : '+'}
-                      {formatCurrency(transaction.amount)}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-4 py-2.5">{transaction.description}</td>
+                      <td className="px-4 py-2.5">
+                        <span
+                          className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${categoryBg} ${categoryText}`}
+                        >
+                          {transaction.categoryName}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5">{transaction.fromAccountName ?? transaction.fromCreditCardName}</td>
+                      <td className="px-4 py-2.5">{formatDate(transaction.date)}</td>
+                      <td className={`px-4 py-2.5 text-right font-heading tabular-nums ${tone.text}`}>
+                        {tone.sign}
+                        {formatCurrency(transaction.amount)}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

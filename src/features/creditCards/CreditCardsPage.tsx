@@ -6,6 +6,7 @@ import { Badge } from '../../components/Badge'
 import { Button } from '../../components/Button'
 import { Card, CardKicker } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
+import { BankLogo } from '../../lib/bankLogos'
 import { formatCurrency } from '../../lib/format'
 import type { CreditCard } from '../../types/domain'
 import { CreditCardFormModal } from './CreditCardFormModal'
@@ -69,9 +70,7 @@ export function CreditCardsPage() {
         {cardsQuery.data?.map((card) => (
           <Card key={card.uuid} className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-100 text-brand-800">
-                <CreditCardIcon size={18} strokeWidth={1.5} />
-              </span>
+              <BankLogo name={card.issuer} size={36} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-heading text-[15px] text-ink">{card.name}</p>
                 <Badge variant="outline">

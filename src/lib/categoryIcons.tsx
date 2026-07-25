@@ -78,6 +78,42 @@ export function iconForCategory(name: string): LucideIcon {
   return ICONS_BY_CATEGORY_NAME[name] ?? DEFAULT_ICON
 }
 
+interface CategoryColor {
+  text: string
+  bg: string
+}
+
+const EXPENSE_PALETTE: CategoryColor[] = [
+  { text: 'text-alert', bg: 'bg-alert-vivid/12' },
+  { text: 'text-violet', bg: 'bg-violet-vivid/12' },
+  { text: 'text-expense', bg: 'bg-rose-vivid/12' },
+  { text: 'text-brand-700', bg: 'bg-brand-100' },
+  { text: 'text-indigo', bg: 'bg-indigo-vivid/12' },
+]
+
+const PINNED_EXPENSE_COLORS: Record<string, CategoryColor> = {
+  'Alimentação': EXPENSE_PALETTE[0],
+  'Transporte': EXPENSE_PALETTE[1],
+  'Saúde': EXPENSE_PALETTE[2],
+  'Moradia': EXPENSE_PALETTE[3],
+  'Assinaturas': EXPENSE_PALETTE[4],
+}
+
+function hashString(value: string): number {
+  let hash = 0
+  for (let i = 0; i < value.length; i++) {
+    hash = (hash * 31 + value.charCodeAt(i)) | 0
+  }
+  return Math.abs(hash)
+}
+
+/** Distinct accent per category name, following the palette from the design (income/transfer stay flow-toned; expenses get a stable color per category). */
+export function categoryColor(name: string, type: FlowType): CategoryColor {
+  if (type === 'INCOME') return { text: 'text-income', bg: 'bg-income-vivid/12' }
+  if (type === 'TRANSFER') return { text: 'text-brand-700', bg: 'bg-brand-100' }
+  return PINNED_EXPENSE_COLORS[name] ?? EXPENSE_PALETTE[hashString(name) % EXPENSE_PALETTE.length]
+}
+
 const sizeClasses = {
   sm: { wrapper: 'h-7 w-7', icon: 14 },
   md: { wrapper: 'h-8 w-8', icon: 16 },
@@ -94,10 +130,10 @@ interface CategoryIconBadgeProps {
 export function CategoryIconBadge({ name, type, size = 'md', className = '' }: CategoryIconBadgeProps) {
   const Icon = iconForCategory(name)
   const { wrapper, icon } = sizeClasses[size]
-  const tone = type === 'EXPENSE' ? 'bg-expense-vivid/12 text-expense' : 'bg-income-vivid/12 text-income'
+  const { text, bg } = categoryColor(name, type)
 
   return (
-    <span className={`flex flex-none items-center justify-center rounded-full ${wrapper} ${tone} ${className}`}>
+    <span className={`flex flex-none items-center justify-center rounded-full ${wrapper} ${bg} ${text} ${className}`}>
       <Icon size={icon} strokeWidth={1.5} />
     </span>
   )

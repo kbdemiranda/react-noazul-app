@@ -10,7 +10,8 @@ import { Card } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Modal } from '../../components/Modal'
 import { AttachmentsList } from '../attachments/AttachmentsList'
-import { CategoryIconBadge } from '../../lib/categoryIcons'
+import { CategoryIconBadge, categoryColor } from '../../lib/categoryIcons'
+import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate, formatTime } from '../../lib/format'
 import { flowTypeLabels } from '../../lib/labels'
 import { TransactionFormModal } from './TransactionFormModal'
@@ -61,6 +62,8 @@ export function TransactionDetailPage() {
 
   const transaction = transactionQuery.data
   if (!transaction) return null
+  const tone = flowTone(transaction.type)
+  const { text: categoryText, bg: categoryBg } = categoryColor(transaction.categoryName, transaction.type)
 
   return (
     <div className="flex flex-col gap-4">
@@ -78,21 +81,15 @@ export function TransactionDetailPage() {
           <div>
             <h1 className="font-heading text-base font-semibold text-ink">{transaction.description}</h1>
             <span
-              className={`mt-1 inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${
-                transaction.type === 'EXPENSE' ? 'bg-expense-vivid/12 text-expense' : 'bg-income-vivid/12 text-income'
-              }`}
+              className={`mt-1 inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${categoryBg} ${categoryText}`}
             >
               {flowTypeLabels[transaction.type]} · {transaction.categoryName}
             </span>
           </div>
         </div>
 
-        <p
-          className={`font-heading text-4xl tabular-nums ${
-            transaction.type === 'EXPENSE' ? 'text-expense' : 'text-income'
-          }`}
-        >
-          {transaction.type === 'EXPENSE' ? '-' : '+'}
+        <p className={`font-heading text-4xl tabular-nums ${tone.text}`}>
+          {tone.sign}
           {formatCurrency(transaction.amount)}
         </p>
 
@@ -107,6 +104,12 @@ export function TransactionDetailPage() {
             <dt className="text-ink/60">Origem</dt>
             <dd className="text-ink">{transaction.fromAccountName ?? transaction.fromCreditCardName}</dd>
           </div>
+          {transaction.type === 'TRANSFER' && (
+            <div className="flex items-center justify-between">
+              <dt className="text-ink/60">Conta de destino</dt>
+              <dd className="text-ink">{transaction.toAccountName}</dd>
+            </div>
+          )}
         </dl>
 
         {archiveMutation.isError && <ErrorBanner error={archiveMutation.error} />}

@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
-import { Inbox, Plus, Wallet } from 'lucide-react'
-import { useMemo } from 'react'
+import { Eye, EyeOff, Inbox, Plus } from 'lucide-react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts'
 import { creditCardsApi } from '../../api/creditCards'
@@ -8,37 +8,41 @@ import { transactionsApi } from '../../api/transactions'
 import { Button } from '../../components/Button'
 import { Card, CardKicker } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
+import { BankLogo } from '../../lib/bankLogos'
+import { computeCardInvoice } from '../../lib/creditCardInvoice'
 import { CategoryIconBadge } from '../../lib/categoryIcons'
-import { formatCurrency, formatDate } from '../../lib/format'
+import { flowTone } from '../../lib/flow'
+import { formatCurrency, formatDate, formatFullDatePtBR, formatMonthYearPtBR, formatShortDatePtBR } from '../../lib/format'
+import { useAuth } from '../../context/AuthContext'
 
-const DONUT_COLORS = ['var(--color-brand-500)', 'var(--color-expense-vivid)', 'var(--color-alert-vivid)', '#8e8e93']
+const DONUT_COLORS = ['var(--color-brand-500)', 'var(--color-expense-vivid)', 'var(--color-alert-vivid)', '#bf5af2']
 
 export function DashboardPage() {
+  const { user } = useAuth()
+  const [hideSaldo, setHideSaldo] = useState(false)
+  const [hideFaturas, setHideFaturas] = useState(false)
+
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const creditCardsQuery = useQuery({ queryKey: ['credit-cards'], queryFn: creditCardsApi.list })
   const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: transactionsApi.list })
 
-  const totalBalance = useMemo(
-    () => (accountsQuery.data ?? []).reduce((sum, account) => sum + account.balance, 0),
-    [accountsQuery.data],
-  )
+  const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data])
+  const creditCards = useMemo(() => creditCardsQuery.data ?? [], [creditCardsQuery.data])
+  const transactions = useMemo(() => transactionsQuery.data ?? [], [transactionsQuery.data])
 
-  const totalCreditLimit = useMemo(
-    () => (creditCardsQuery.data ?? []).reduce((sum, card) => sum + card.creditLimit, 0),
-    [creditCardsQuery.data],
+  const totalBalance = useMemo(() => accounts.reduce((sum, account) => sum + account.balance, 0), [accounts])
+
+  const cardInvoices = useMemo(
+    () => creditCards.map((card) => ({ card, ...computeCardInvoice(card, transactions) })),
+    [creditCards, transactions],
   )
+  const totalInvoice = useMemo(() => cardInvoices.reduce((sum, entry) => sum + entry.total, 0), [cardInvoices])
 
   const monthTransactions = useMemo(() => {
     const now = new Date()
     const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    return (transactionsQuery.data ?? []).filter((t) => t.date.startsWith(currentMonth))
-  }, [transactionsQuery.data])
-
-  const monthSummary = useMemo(() => {
-    const income = monthTransactions.filter((t) => t.type === 'INCOME').reduce((sum, t) => sum + t.amount, 0)
-    const expense = monthTransactions.filter((t) => t.type === 'EXPENSE').reduce((sum, t) => sum + t.amount, 0)
-    return { income, expense }
-  }, [monthTransactions])
+    return transactions.filter((t) => t.date.startsWith(currentMonth))
+  }, [transactions])
 
   const categoryBreakdown = useMemo(() => {
     const expenses = monthTransactions.filter((t) => t.type === 'EXPENSE')
@@ -50,8 +54,8 @@ export function DashboardPage() {
       byCategory.set(t.categoryName, (byCategory.get(t.categoryName) ?? 0) + t.amount)
     }
     const sorted = [...byCategory.entries()].sort((a, b) => b[1] - a[1])
-    const top = sorted.slice(0, 3)
-    const restSum = sorted.slice(3).reduce((sum, [, amount]) => sum + amount, 0)
+    const top = sorted.slice(0, 4)
+    const restSum = sorted.slice(4).reduce((sum, [, amount]) => sum + amount, 0)
     const entries = restSum > 0 ? [...top, ['Outros', restSum] as const] : top
 
     let cumulative = 0
@@ -65,22 +69,25 @@ export function DashboardPage() {
   }, [monthTransactions])
 
   const recentTransactions = useMemo(
-    () =>
-      [...(transactionsQuery.data ?? [])]
-        .sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0))
-        .slice(0, 5),
-    [transactionsQuery.data],
+    () => [...transactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)).slice(0, 5),
+    [transactions],
   )
 
   const isLoading = accountsQuery.isLoading || creditCardsQuery.isLoading || transactionsQuery.isLoading
   const isError = accountsQuery.isError || creditCardsQuery.isError || transactionsQuery.isError
+  const canCreate = accounts.length > 0 || creditCards.length > 0
+  const today = useMemo(() => new Date(), [])
+  const firstName = user?.name.split(' ')[0] ?? ''
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold text-ink">Visão geral</h1>
+        <div>
+          <h1 className="text-xl font-semibold text-ink sm:text-2xl">Olá, {firstName}</h1>
+          <p className="mt-0.5 text-[13px] text-ink/60">{formatFullDatePtBR(today)}</p>
+        </div>
         <Link to="/transacoes">
-          <Button className="hidden sm:inline-flex">
+          <Button className="hidden sm:inline-flex" disabled={!canCreate}>
             <Plus size={15} />
             Nova transação
           </Button>
@@ -90,116 +97,219 @@ export function DashboardPage() {
       {isError && <ErrorBanner error={accountsQuery.error ?? creditCardsQuery.error ?? transactionsQuery.error} />}
 
       {isLoading && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-20 animate-pulse rounded-2xl bg-black/[.06]" />
-          ))}
+        <div className="grid gap-4 lg:grid-cols-2">
+          <div className="flex flex-col gap-4">
+            <div className="h-56 animate-pulse rounded-2xl bg-black/[.06]" />
+            <div className="h-40 animate-pulse rounded-2xl bg-black/[.06]" />
+          </div>
+          <div className="flex flex-col gap-4">
+            <div className="h-56 animate-pulse rounded-2xl bg-black/[.06]" />
+            <div className="h-40 animate-pulse rounded-2xl bg-black/[.06]" />
+          </div>
         </div>
       )}
 
       {!isLoading && (
-        <>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 lg:grid-cols-2 lg:items-start">
+          <div className="flex flex-col gap-4">
             <Card>
-              <CardKicker>Saldo em contas</CardKicker>
-              <p className="mt-1.5 font-heading text-xl tabular-nums text-ink">{formatCurrency(totalBalance)}</p>
+              <div className="mb-2 flex items-center gap-2">
+                <span className="h-3.5 w-1 rounded-full bg-income-vivid" />
+                <CardKicker>Saldo geral</CardKicker>
+              </div>
+              <div className="mb-4 flex items-center gap-2.5">
+                <p className="font-heading text-2xl tabular-nums text-ink">
+                  {hideSaldo ? '••••••' : formatCurrency(totalBalance)}
+                </p>
+                <button
+                  type="button"
+                  aria-label="Mostrar/ocultar saldo"
+                  onClick={() => setHideSaldo((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink/45 hover:bg-black/[.05]"
+                >
+                  {hideSaldo ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div className="mb-4 h-px bg-black/[.06]" />
+              <h2 className="mb-3 font-heading text-[17px] font-semibold text-ink">Minhas contas</h2>
+              {accounts.length === 0 ? (
+                <p className="py-2 text-[13px] text-ink/55">Nenhuma conta cadastrada ainda.</p>
+              ) : (
+                <ul className="flex flex-col">
+                  {accounts.map((account) => (
+                    <li
+                      key={account.uuid}
+                      className="flex items-center gap-3 border-b border-black/[.06] py-2.5 last:border-b-0"
+                    >
+                      <BankLogo name={account.bankName} size={36} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14.5px] font-semibold text-ink">{account.name}</p>
+                        <p className="mt-0.5 text-xs text-ink/60">Conta manual</p>
+                      </div>
+                      <p className="font-heading text-[14.5px] tabular-nums text-brand-500">
+                        {formatCurrency(account.balance)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <Link to="/contas">
+                <Button variant="secondary" className="mt-3.5 w-full">
+                  Gerenciar contas
+                </Button>
+              </Link>
             </Card>
+
             <Card>
-              <CardKicker>Limite de cartões</CardKicker>
-              <p className="mt-1.5 font-heading text-xl tabular-nums text-ink">{formatCurrency(totalCreditLimit)}</p>
-            </Card>
-            <Card>
-              <CardKicker>Receitas no mês</CardKicker>
-              <p className="mt-1.5 font-heading text-xl tabular-nums text-income">{formatCurrency(monthSummary.income)}</p>
-            </Card>
-            <Card>
-              <CardKicker>Despesas no mês</CardKicker>
-              <p className="mt-1.5 font-heading text-xl tabular-nums text-expense">{formatCurrency(monthSummary.expense)}</p>
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-heading font-semibold text-ink">Últimos lançamentos</h2>
+                <Link to="/transacoes" className="text-sm font-medium text-brand-500 hover:text-brand-700">
+                  Ver todas
+                </Link>
+              </div>
+
+              {recentTransactions.length === 0 ? (
+                <div className="flex flex-col items-center gap-2 py-8 text-center">
+                  <Inbox size={28} className="text-ink/35" />
+                  <p className="text-sm text-ink/60">Nenhum lançamento ainda.</p>
+                </div>
+              ) : (
+                <ul className="flex flex-col">
+                  {recentTransactions.map((transaction) => {
+                    const tone = flowTone(transaction.type)
+                    return (
+                      <li key={transaction.uuid}>
+                        <Link
+                          to={`/transacoes/${transaction.uuid}`}
+                          className="flex items-center gap-3 border-b border-black/[.06] py-2.5 last:border-b-0 hover:opacity-80"
+                        >
+                          <CategoryIconBadge name={transaction.categoryName} type={transaction.type} />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm text-ink">{transaction.description}</p>
+                            <p className="text-xs text-ink/60">
+                              {transaction.categoryName} · {formatDate(transaction.date)}
+                            </p>
+                          </div>
+                          <p className={`font-heading text-sm tabular-nums ${tone.text}`}>
+                            {tone.sign}
+                            {formatCurrency(transaction.amount)}
+                          </p>
+                        </Link>
+                      </li>
+                    )
+                  })}
+                </ul>
+              )}
             </Card>
           </div>
 
-          {categoryBreakdown.slices.length > 0 && (
+          <div className="flex flex-col gap-4">
             <Card>
-              <CardKicker className="mb-3 block">Gastos por categoria</CardKicker>
-              <div className="flex items-center gap-5">
-                <div
-                  className="relative h-24 w-24 flex-none rounded-full"
-                  style={{
-                    background: `conic-gradient(${categoryBreakdown.slices
-                      .map((s) => `${s.color} ${s.from}% ${s.to}%`)
-                      .join(', ')})`,
-                  }}
+              <div className="mb-2 flex items-center gap-2">
+                <span className="h-3.5 w-1 rounded-full bg-income-vivid" />
+                <CardKicker>Faturas de {formatMonthYearPtBR(today)}</CardKicker>
+              </div>
+              <div className="mb-4 flex items-center gap-2.5">
+                <p className="font-heading text-2xl tabular-nums text-expense">
+                  {hideFaturas ? '••••••' : formatCurrency(totalInvoice)}
+                </p>
+                <button
+                  type="button"
+                  aria-label="Mostrar/ocultar faturas"
+                  onClick={() => setHideFaturas((v) => !v)}
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink/45 hover:bg-black/[.05]"
                 >
-                  <div className="absolute inset-[15px] rounded-full bg-page" />
-                </div>
-                <div className="flex flex-col gap-1.5 text-[11.5px]">
-                  {categoryBreakdown.slices.map((slice) => (
-                    <div key={slice.name} className="flex items-center gap-1.5">
-                      <span className="h-2 w-2 flex-none rounded-full" style={{ background: slice.color }} />
-                      {slice.name} · {slice.pct.toFixed(0)}%
+                  {hideFaturas ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              <div className="mb-4 h-px bg-black/[.06]" />
+              <div className="mb-3 flex items-center justify-between">
+                <h2 className="font-heading text-[17px] font-semibold text-ink">Meus cartões</h2>
+                <Link to="/cartoes" className="text-sm font-medium text-brand-500 hover:text-brand-700">
+                  Ver todos
+                </Link>
+              </div>
+              {creditCards.length === 0 ? (
+                <p className="py-2 text-[13px] text-ink/55">Nenhum cartão cadastrado ainda.</p>
+              ) : (
+                <div className="flex flex-col gap-3">
+                  {cardInvoices.map(({ card, total, availableLimit, dueDate }) => (
+                    <div key={card.uuid} className="rounded-2xl bg-black/[.04] p-3.5">
+                      <div className="mb-3 flex items-center gap-2.5">
+                        <BankLogo name={card.issuer} size={36} />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-[14.5px] font-semibold text-ink">{card.name}</p>
+                          <p className="mt-0.5 text-xs text-ink/60">Cartão manual</p>
+                        </div>
+                        <Link to="/cartoes">
+                          <Button variant="secondary" className="px-3.5 py-1.5 text-xs">
+                            Ver fatura
+                          </Button>
+                        </Link>
+                      </div>
+                      <div className="flex gap-2.5 rounded-xl bg-white/70 p-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="mb-0.5 text-[11px] text-ink/60">Limite disponível</p>
+                          <p className="text-sm font-semibold tabular-nums text-ink">{formatCurrency(availableLimit)}</p>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="mb-0.5 text-[11px] text-ink/60">
+                            Fatura atual <span className="text-[10px] font-normal">vence {formatShortDatePtBR(dueDate)}</span>
+                          </p>
+                          <p className="text-sm font-semibold tabular-nums text-expense">{formatCurrency(total)}</p>
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
-              </div>
-            </Card>
-          )}
-
-          <Card>
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-heading font-semibold text-ink">Últimos lançamentos</h2>
-              <Link to="/transacoes" className="text-sm font-medium text-brand-500 hover:text-brand-700">
-                Ver todas
+              )}
+              <Link to="/cartoes">
+                <Button variant="secondary" className="mt-3.5 w-full">
+                  Gerenciar cartões
+                </Button>
               </Link>
-            </div>
+            </Card>
 
-            {recentTransactions.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-center">
-                <Inbox size={28} className="text-ink/35" />
-                <p className="text-sm text-ink/60">Nenhuma transação registrada ainda.</p>
-              </div>
-            ) : (
-              <ul className="flex flex-col">
-                {recentTransactions.map((transaction) => (
-                  <li key={transaction.uuid}>
-                    <Link
-                      to={`/transacoes/${transaction.uuid}`}
-                      className="flex items-center gap-3 border-b border-black/[.06] py-2.5 last:border-b-0 hover:opacity-80"
-                    >
-                      <CategoryIconBadge name={transaction.categoryName} type={transaction.type} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm text-ink">{transaction.description}</p>
-                        <p className="text-xs text-ink/60">
-                          {transaction.categoryName} · {formatDate(transaction.date)}
-                        </p>
+            <Card>
+              <h2 className="mb-4 font-heading text-[17px] font-semibold text-ink">Maiores gastos do mês atual</h2>
+              <div className="flex items-center gap-5">
+                <div className="flex min-w-0 flex-1 flex-col gap-3">
+                  {categoryBreakdown.slices.length === 0 ? (
+                    <p className="text-[13px] text-ink/55">Nenhuma despesa no período.</p>
+                  ) : (
+                    categoryBreakdown.slices.map((slice) => (
+                      <div key={slice.name} className="flex items-center gap-2.5">
+                        <span className="h-2 w-2 flex-none rounded-full" style={{ background: slice.color }} />
+                        <span className="min-w-0 flex-1 truncate text-[13.5px] font-medium text-ink">{slice.name}</span>
+                        <span className="text-[13.5px] font-semibold tabular-nums text-ink">
+                          {slice.pct.toFixed(0)}%
+                        </span>
                       </div>
-                      <p
-                        className={`font-heading text-sm tabular-nums ${
-                          transaction.type === 'EXPENSE' ? 'text-expense' : 'text-income'
-                        }`}
-                      >
-                        {transaction.type === 'EXPENSE' ? '-' : '+'}
-                        {formatCurrency(transaction.amount)}
-                      </p>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </Card>
-
-          {(accountsQuery.data?.length ?? 0) === 0 && (creditCardsQuery.data?.length ?? 0) === 0 && (
-            <Card className="flex flex-col items-center gap-2 py-8 text-center">
-              <Wallet size={28} className="text-ink/35" />
-              <h3 className="font-heading text-base font-semibold text-ink">Nenhuma conta cadastrada</h3>
-              <p className="max-w-xs text-[12.5px] text-ink/65">
-                Cadastre uma conta ou cartão para começar a acompanhar seu saldo.
-              </p>
-              <Link to="/contas">
-                <Button className="mt-1">Cadastrar conta</Button>
-              </Link>
+                    ))
+                  )}
+                </div>
+                <div className="flex flex-none flex-col items-center gap-3">
+                  <div
+                    className="relative h-24 w-24 rounded-full"
+                    style={{
+                      background:
+                        categoryBreakdown.slices.length > 0
+                          ? `conic-gradient(${categoryBreakdown.slices.map((s) => `${s.color} ${s.from}% ${s.to}%`).join(', ')})`
+                          : 'var(--color-surface)',
+                    }}
+                  >
+                    <div className="absolute inset-[15px] rounded-full bg-page" />
+                  </div>
+                  <Link to="/categorias">
+                    <Button variant="secondary" className="px-4 py-2 text-xs whitespace-nowrap">
+                      Ver relatório
+                    </Button>
+                  </Link>
+                </div>
+              </div>
             </Card>
-          )}
-        </>
+          </div>
+        </div>
       )}
     </div>
   )

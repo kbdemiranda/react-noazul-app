@@ -1,22 +1,16 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { CircleDollarSign, Landmark, PiggyBank, Plus, Wallet } from 'lucide-react'
+import { Landmark, Plus } from 'lucide-react'
 import { useState } from 'react'
 import { accountsApi, type AccountPayload } from '../../api/accounts'
 import { Badge } from '../../components/Badge'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
+import { BankLogo } from '../../lib/bankLogos'
 import { accountTypeLabels } from '../../lib/labels'
 import { formatCurrency } from '../../lib/format'
-import type { Account, AccountType } from '../../types/domain'
+import type { Account } from '../../types/domain'
 import { AccountFormModal } from './AccountFormModal'
-
-const ACCOUNT_TYPE_ICONS: Record<AccountType, typeof Landmark> = {
-  CHECKING: Landmark,
-  SAVINGS: PiggyBank,
-  DIGITAL_WALLET: Wallet,
-  OTHER: CircleDollarSign,
-}
 
 export function AccountsPage() {
   const queryClient = useQueryClient()
@@ -76,13 +70,10 @@ export function AccountsPage() {
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
         {accountsQuery.data?.map((account) => {
-          const Icon = ACCOUNT_TYPE_ICONS[account.type]
           return (
             <Card key={account.uuid} className="flex flex-col gap-3">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-100 text-brand-800">
-                  <Icon size={18} strokeWidth={1.5} />
-                </span>
+                <BankLogo name={account.bankName} size={36} />
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-heading text-[15px] text-ink">{account.name}</p>
                   <Badge variant="neutral">{accountTypeLabels[account.type]}</Badge>
