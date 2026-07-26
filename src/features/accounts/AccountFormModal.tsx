@@ -8,38 +8,35 @@ import { Modal } from '../../components/Modal'
 import { SegmentedControl } from '../../components/SegmentedControl'
 import { CURRENCIES, accountTypeLabels } from '../../lib/labels'
 import type { Account, AccountType, Currency } from '../../types/domain'
-import type { AccountCreatePayload, AccountUpdatePayload } from '../../api/accounts'
+import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload } from '../../api/accounts'
 import { useState } from 'react'
 
-function buildSchema(isCreate: boolean) {
-  return z
-    .object({
-      name: z.string().min(1, 'Informe um nome'),
-      bankName: z.string().min(1, 'Informe o banco'),
-      type: z.enum(['CHECKING', 'SAVINGS', 'DIGITAL_WALLET', 'OTHER']),
-      currency: z.enum(['BRL', 'USD', 'EUR', 'GBP', 'ARS']).optional(),
-      balance: z.coerce.number({ message: 'Informe um valor válido' }).optional(),
-    })
-    .superRefine((values, ctx) => {
-      if (isCreate && !values.currency) {
-        ctx.addIssue({ code: 'custom', message: 'Escolha uma moeda', path: ['currency'] })
-      }
-    })
-}
+const schema = z.object({
+  name: z.string().min(1, 'Informe um nome'),
+  bankName: z.string().min(1, 'Informe o banco'),
+  type: z.enum(['CHECKING', 'SAVINGS', 'DIGITAL_WALLET', 'OTHER']),
+})
 
-type FormInput = z.input<ReturnType<typeof buildSchema>>
-type FormValues = z.output<ReturnType<typeof buildSchema>>
+type FormInput = z.input<typeof schema>
+type FormValues = z.output<typeof schema>
 
 interface AccountFormModalProps {
   account?: Account
   onClose: () => void
-  onSubmit: (payload: AccountCreatePayload | AccountUpdatePayload) => Promise<void>
+  // extraBalances is only populated on create, for every currency selected
+  // besides the first — the account itself is created with the first
+  // currency, then a balance is added for each of the rest.
+  onSubmit: (payload: AccountCreatePayload | AccountUpdatePayload, extraBalances?: AccountBalancePayload[]) => Promise<void>
 }
 
 export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModalProps) {
   const [submitError, setSubmitError] = useState<unknown>(null)
   const isCreate = !account
-  const schema = buildSchema(isCreate)
+  // Selecting more than one currency here is how an account becomes
+  // multi-currency (e.g. Wise) right from creation — the same thing "+
+  // Moeda" does later for an existing account, just batched up front.
+  const [selectedCurrencies, setSelectedCurrencies] = useState<Currency[]>(['BRL'])
+  const [balances, setBalances] = useState<Partial<Record<Currency, string>>>({ BRL: '0' })
 
   const {
     register,
@@ -51,24 +48,39 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
     resolver: zodResolver(schema),
     defaultValues: account
       ? { name: account.name, bankName: account.bankName, type: account.type }
-      : { type: 'CHECKING' as AccountType, currency: 'BRL' as Currency, balance: 0 },
+      : { type: 'CHECKING' as AccountType },
   })
 
   const selectedType = watch('type')
-  const selectedCurrency = watch('currency')
+
+  function toggleCurrency(currency: Currency) {
+    setSelectedCurrencies((prev) => {
+      if (prev.includes(currency)) {
+        if (prev.length === 1) return prev // at least one currency stays selected
+        return prev.filter((c) => c !== currency)
+      }
+      return [...prev, currency]
+    })
+    setBalances((prev) => (currency in prev ? prev : { ...prev, [currency]: '0' }))
+  }
 
   const submit = async (values: FormValues) => {
     setSubmitError(null)
     try {
       if (isCreate) {
+        const [firstCurrency, ...restCurrencies] = selectedCurrencies
         const payload: AccountCreatePayload = {
           name: values.name,
           bankName: values.bankName,
           type: values.type,
-          currency: values.currency!,
-          balance: values.balance ?? 0,
+          currency: firstCurrency,
+          balance: Number(balances[firstCurrency] ?? 0),
         }
-        await onSubmit(payload)
+        const extraBalances: AccountBalancePayload[] = restCurrencies.map((currency) => ({
+          currency,
+          balance: Number(balances[currency] ?? 0),
+        }))
+        await onSubmit(payload, extraBalances)
       } else {
         const payload: AccountUpdatePayload = { name: values.name, bankName: values.bankName, type: values.type }
         await onSubmit(payload)
@@ -102,18 +114,46 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
         </Field>
         {isCreate && (
           <>
-            <Field label="Moeda" htmlFor="currency" error={errors.currency?.message}>
-              <SegmentedControl
-                name="currency"
-                value={selectedCurrency ?? 'BRL'}
-                onChange={(value) => setValue('currency', value, { shouldValidate: true })}
-                options={CURRENCIES.map((currency) => ({ value: currency, label: currency }))}
-                className="w-full"
-              />
-            </Field>
-            <Field label="Saldo" htmlFor="balance" error={errors.balance?.message}>
-              <input id="balance" type="number" step="0.01" className={inputClass} {...register('balance')} />
-            </Field>
+            <div className="flex flex-col gap-1.5">
+              <span id="currencies-label" className="text-[13px] font-semibold text-ink">
+                Moedas
+              </span>
+              <div role="group" aria-labelledby="currencies-label" className="inline-flex flex-wrap gap-1 rounded-full bg-black/[.06] p-1">
+                {CURRENCIES.map((currency) => {
+                  const active = selectedCurrencies.includes(currency)
+                  return (
+                    <button
+                      key={currency}
+                      type="button"
+                      aria-pressed={active}
+                      onClick={() => toggleCurrency(currency)}
+                      className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                        active ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+                      }`}
+                    >
+                      {currency}
+                    </button>
+                  )
+                })}
+              </div>
+              <p className="text-xs text-ink/55">
+                Selecione mais de uma moeda para criar uma conta multi-moeda (ex: Wise, Revolut).
+              </p>
+            </div>
+            <div className="flex flex-col gap-3">
+              {selectedCurrencies.map((currency) => (
+                <Field key={currency} label={`Saldo inicial (${currency})`} htmlFor={`balance-${currency}`}>
+                  <input
+                    id={`balance-${currency}`}
+                    type="number"
+                    step="0.01"
+                    className={inputClass}
+                    value={balances[currency] ?? ''}
+                    onChange={(e) => setBalances((prev) => ({ ...prev, [currency]: e.target.value }))}
+                  />
+                </Field>
+              ))}
+            </div>
           </>
         )}
 

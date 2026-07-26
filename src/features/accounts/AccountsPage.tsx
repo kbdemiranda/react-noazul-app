@@ -129,8 +129,11 @@ export function AccountsPage() {
       {isCreating && (
         <AccountFormModal
           onClose={() => setIsCreating(false)}
-          onSubmit={async (payload) => {
-            await createMutation.mutateAsync(payload as AccountCreatePayload)
+          onSubmit={async (payload, extraBalances) => {
+            const account = await createMutation.mutateAsync(payload as AccountCreatePayload)
+            for (const balancePayload of extraBalances ?? []) {
+              await addBalanceMutation.mutateAsync({ uuid: account.uuid, payload: balancePayload })
+            }
           }}
         />
       )}
