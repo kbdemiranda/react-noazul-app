@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Button } from '../../components/Button'
+import { CurrencyInput } from '../../components/CurrencyInput'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
@@ -36,7 +37,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
   // multi-currency (e.g. Wise) right from creation — the same thing "+
   // Moeda" does later for an existing account, just batched up front.
   const [selectedCurrencies, setSelectedCurrencies] = useState<Currency[]>(['BRL'])
-  const [balances, setBalances] = useState<Partial<Record<Currency, string>>>({ BRL: '0' })
+  const [balances, setBalances] = useState<Partial<Record<Currency, number>>>({ BRL: 0 })
 
   const {
     register,
@@ -61,7 +62,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
       }
       return [...prev, currency]
     })
-    setBalances((prev) => (currency in prev ? prev : { ...prev, [currency]: '0' }))
+    setBalances((prev) => (currency in prev ? prev : { ...prev, [currency]: 0 }))
   }
 
   const submit = async (values: FormValues) => {
@@ -74,11 +75,11 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
           bankName: values.bankName,
           type: values.type,
           currency: firstCurrency,
-          balance: Number(balances[firstCurrency] ?? 0),
+          balance: balances[firstCurrency] ?? 0,
         }
         const extraBalances: AccountBalancePayload[] = restCurrencies.map((currency) => ({
           currency,
-          balance: Number(balances[currency] ?? 0),
+          balance: balances[currency] ?? 0,
         }))
         await onSubmit(payload, extraBalances)
       } else {
@@ -150,13 +151,12 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
                     <label htmlFor={`balance-${currency}`} className="text-xs font-medium text-ink/60">
                       {currency}
                     </label>
-                    <input
+                    <CurrencyInput
                       id={`balance-${currency}`}
-                      type="number"
-                      step="0.01"
+                      currency={currency}
+                      value={balances[currency] ?? 0}
+                      onChange={(value) => setBalances((prev) => ({ ...prev, [currency]: value }))}
                       className={inputClass}
-                      value={balances[currency] ?? ''}
-                      onChange={(e) => setBalances((prev) => ({ ...prev, [currency]: e.target.value }))}
                     />
                   </div>
                 ))}

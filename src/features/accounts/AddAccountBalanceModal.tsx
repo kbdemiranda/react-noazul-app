@@ -2,6 +2,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import { Button } from '../../components/Button'
+import { CurrencyInput } from '../../components/CurrencyInput'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
@@ -32,7 +33,6 @@ export function AddAccountBalanceModal({ account, onClose, onSubmit }: AddAccoun
   )
 
   const {
-    register,
     handleSubmit,
     watch,
     setValue,
@@ -43,6 +43,7 @@ export function AddAccountBalanceModal({ account, onClose, onSubmit }: AddAccoun
   })
 
   const selectedCurrency = watch('currency')
+  const selectedBalance = watch('balance')
 
   const submit = async (values: FormValues) => {
     setSubmitError(null)
@@ -71,7 +72,13 @@ export function AddAccountBalanceModal({ account, onClose, onSubmit }: AddAccoun
               />
             </Field>
             <Field label="Saldo inicial" htmlFor="balance" error={errors.balance?.message}>
-              <input id="balance" type="number" step="0.01" className={inputClass} {...register('balance')} />
+              <CurrencyInput
+                id="balance"
+                currency={selectedCurrency}
+                value={Number(selectedBalance ?? 0)}
+                onChange={(value) => setValue('balance', value, { shouldValidate: true })}
+                className={inputClass}
+              />
             </Field>
           </>
         )}
