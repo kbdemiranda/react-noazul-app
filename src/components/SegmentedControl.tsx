@@ -25,7 +25,7 @@ export function SegmentedControl<T extends string>({
         return (
           <label
             key={option.value}
-            className={`flex-1 cursor-pointer rounded-full px-3 py-1.5 text-center text-[13px] font-medium transition-colors ${
+            className={`flex flex-1 cursor-pointer items-center justify-center rounded-full px-3 py-1.5 text-center text-[13px] font-medium transition-colors ${
               checked ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
             }`}
           >
