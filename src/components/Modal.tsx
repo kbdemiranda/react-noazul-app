@@ -5,12 +5,13 @@ interface ModalProps {
   title: string
   onClose: () => void
   children: ReactNode
+  maxWidthClassName?: string
 }
 
-export function Modal({ title, onClose, children }: ModalProps) {
+export function Modal({ title, onClose, children, maxWidthClassName = 'max-w-md' }: ModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/28 px-4 backdrop-blur-sm">
-      <div className="glass-surface w-full max-w-md rounded-2xl bg-white/85 p-6 shadow-lg">
+      <div className={`glass-surface w-full ${maxWidthClassName} rounded-2xl bg-white/85 p-6 shadow-lg`}>
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-heading text-xl font-semibold text-ink">{title}</h2>
           <button

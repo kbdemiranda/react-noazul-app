@@ -55,13 +55,13 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
   }
 
   return (
-    <Modal title={account ? 'Editar conta' : 'Nova conta'} onClose={onClose}>
+    <Modal title={account ? 'Editar conta' : 'Nova conta'} onClose={onClose} maxWidthClassName="max-w-lg">
       <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
         <Field label="Nome" htmlFor="name" error={errors.name?.message}>
           <input id="name" className={inputClass} placeholder="Conta principal" {...register('name')} />
         </Field>
-        <Field label="Banco" htmlFor="bankName" error={errors.bankName?.message}>
-          <input id="bankName" className={inputClass} placeholder="Itaú, Nubank, Inter..." {...register('bankName')} />
+        <Field label="Instituição | Banco" htmlFor="bankName" error={errors.bankName?.message}>
+          <input id="bankName" className={inputClass} placeholder="Itaú" {...register('bankName')} />
         </Field>
         <Field label="Tipo" htmlFor="type" error={errors.type?.message}>
           <SegmentedControl
