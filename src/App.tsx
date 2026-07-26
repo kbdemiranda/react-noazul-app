@@ -7,6 +7,7 @@ import { SignupPage } from './features/auth/SignupPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { OnboardingPage } from './features/onboarding/OnboardingPage'
 import { AccountsPage } from './features/accounts/AccountsPage'
+import { ExchangePage } from './features/exchange/ExchangePage'
 import { CreditCardsPage } from './features/creditCards/CreditCardsPage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { TransactionDetailPage } from './features/transactions/TransactionDetailPage'
@@ -43,6 +44,7 @@ function App() {
                   <Route path="/transacoes" element={<TransactionsPage />} />
                   <Route path="/transacoes/:uuid" element={<TransactionDetailPage />} />
                   <Route path="/contas" element={<AccountsPage />} />
+                  <Route path="/cambio" element={<ExchangePage />} />
                   <Route path="/cartoes" element={<CreditCardsPage />} />
                   <Route path="/categorias" element={<CategoriesPage />} />
                   <Route path="/perfil" element={<ProfilePage />} />
