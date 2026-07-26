@@ -1,12 +1,26 @@
 import { apiClient } from './client'
 import { USE_MOCKS } from '../lib/mockConfig'
 import { mockAccounts } from './mockStore'
-import type { Account, AccountType } from '../types/domain'
+import type { Account, AccountBalance, AccountType, Currency } from '../types/domain'
 
-export interface AccountPayload {
+export interface AccountCreatePayload {
   name: string
   bankName: string
   type: AccountType
+  currency: Currency
+  balance: number
+}
+
+// Unlike creation, currency/balance aren't editable here — see addBalance to
+// give an existing account a new currency (making it multi-currency, e.g. Wise).
+export interface AccountUpdatePayload {
+  name: string
+  bankName: string
+  type: AccountType
+}
+
+export interface AccountBalancePayload {
+  currency: Currency
   balance: number
 }
 
@@ -21,12 +35,12 @@ export const accountsApi = {
     const { data } = await apiClient.get<Account>(`/accounts/${uuid}`)
     return data
   },
-  async create(payload: AccountPayload): Promise<Account> {
+  async create(payload: AccountCreatePayload): Promise<Account> {
     if (USE_MOCKS) return mockAccounts.create(payload)
     const { data } = await apiClient.post<Account>('/accounts', payload)
     return data
   },
-  async update(uuid: string, payload: AccountPayload): Promise<Account> {
+  async update(uuid: string, payload: AccountUpdatePayload): Promise<Account> {
     if (USE_MOCKS) return mockAccounts.update(uuid, payload)
     const { data } = await apiClient.patch<Account>(`/accounts/${uuid}`, payload)
     return data
@@ -34,5 +48,10 @@ export const accountsApi = {
   async archive(uuid: string): Promise<void> {
     if (USE_MOCKS) return mockAccounts.archive(uuid)
     await apiClient.delete(`/accounts/${uuid}`)
+  },
+  async addBalance(uuid: string, payload: AccountBalancePayload): Promise<AccountBalance> {
+    if (USE_MOCKS) return mockAccounts.addBalance(uuid, payload)
+    const { data } = await apiClient.post<AccountBalance>(`/accounts/${uuid}/balances`, payload)
+    return data
   },
 }

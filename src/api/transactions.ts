@@ -9,10 +9,15 @@ export interface TransactionPayload {
   type: FlowType
   date: string // yyyy-MM-dd
   time?: string | null // HH:mm:ss
-  categoryUuid: string
-  fromAccountUuid?: string | null
+  // Required for every type except EXCHANGE, which must omit it.
+  categoryUuid?: string | null
+  fromAccountBalanceUuid?: string | null
   fromCreditCardUuid?: string | null
-  toAccountUuid?: string | null
+  // Populated for TRANSFER and EXCHANGE only.
+  toAccountBalanceUuid?: string | null
+  // Only for EXCHANGE — the amount credited to toAccountBalanceUuid, in its
+  // own currency.
+  convertedAmount?: number | null
 }
 
 export const transactionsApi = {

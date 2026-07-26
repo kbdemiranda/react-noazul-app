@@ -30,7 +30,18 @@ export function DashboardPage() {
   const creditCards = useMemo(() => creditCardsQuery.data ?? [], [creditCardsQuery.data])
   const transactions = useMemo(() => transactionsQuery.data ?? [], [transactionsQuery.data])
 
-  const totalBalance = useMemo(() => accounts.reduce((sum, account) => sum + account.balance, 0), [accounts])
+  // Balances are per-currency (AccountBalance) — summing across different currencies
+  // as if they were the same unit would be wrong, so totals are grouped by currency
+  // instead of collapsed into one naively-summed number.
+  const balanceTotalsByCurrency = useMemo(() => {
+    const totals = new Map<string, number>()
+    for (const account of accounts) {
+      for (const balance of account.balances) {
+        totals.set(balance.currency, (totals.get(balance.currency) ?? 0) + balance.balance)
+      }
+    }
+    return [...totals.entries()].map(([currency, total]) => ({ currency, total }))
+  }, [accounts])
 
   const cardInvoices = useMemo(
     () => creditCards.map((card) => ({ card, ...computeCardInvoice(card, transactions) })),
@@ -51,7 +62,9 @@ export function DashboardPage() {
 
     const byCategory = new Map<string, number>()
     for (const t of expenses) {
-      byCategory.set(t.categoryName, (byCategory.get(t.categoryName) ?? 0) + t.amount)
+      // EXPENSE transactions always have a category (only EXCHANGE doesn't).
+      const categoryName = t.categoryName ?? 'Outros'
+      byCategory.set(categoryName, (byCategory.get(categoryName) ?? 0) + t.amount)
     }
     const sorted = [...byCategory.entries()].sort((a, b) => b[1] - a[1])
     const top = sorted.slice(0, 4)
@@ -118,9 +131,21 @@ export function DashboardPage() {
                 <CardKicker>Saldo geral</CardKicker>
               </div>
               <div className="mb-4 flex items-center gap-2.5">
-                <p className="font-heading text-2xl tabular-nums text-ink">
-                  {hideSaldo ? '••••••' : formatCurrency(totalBalance)}
-                </p>
+                {hideSaldo ? (
+                  <p className="font-heading text-2xl tabular-nums text-ink">••••••</p>
+                ) : balanceTotalsByCurrency.length <= 1 ? (
+                  <p className="font-heading text-2xl tabular-nums text-ink">
+                    {formatCurrency(balanceTotalsByCurrency[0]?.total ?? 0, balanceTotalsByCurrency[0]?.currency)}
+                  </p>
+                ) : (
+                  <div className="flex flex-col gap-0.5">
+                    {balanceTotalsByCurrency.map(({ currency, total }) => (
+                      <p key={currency} className="font-heading text-xl tabular-nums text-ink">
+                        {formatCurrency(total, currency)}
+                      </p>
+                    ))}
+                  </div>
+                )}
                 <button
                   type="button"
                   aria-label="Mostrar/ocultar saldo"
@@ -146,9 +171,16 @@ export function DashboardPage() {
                         <p className="text-[14.5px] font-semibold text-ink">{account.name}</p>
                         <p className="mt-0.5 text-xs text-ink/60">Conta manual</p>
                       </div>
-                      <p className="font-heading text-[14.5px] tabular-nums text-brand-500">
-                        {formatCurrency(account.balance)}
-                      </p>
+                      <div className="flex flex-col items-end gap-0.5">
+                        {account.balances.map((balance) => (
+                          <p
+                            key={balance.uuid}
+                            className="font-heading text-[14.5px] tabular-nums text-brand-500"
+                          >
+                            {formatCurrency(balance.balance, balance.currency)}
+                          </p>
+                        ))}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -183,11 +215,11 @@ export function DashboardPage() {
                           to={`/transacoes/${transaction.uuid}`}
                           className="flex items-center gap-3 border-b border-black/[.06] py-2.5 last:border-b-0 hover:opacity-80"
                         >
-                          <CategoryIconBadge name={transaction.categoryName} type={transaction.type} />
+                          <CategoryIconBadge name={transaction.categoryName ?? 'Câmbio'} type={transaction.type} />
                           <div className="min-w-0 flex-1">
                             <p className="text-sm text-ink">{transaction.description}</p>
                             <p className="text-xs text-ink/60">
-                              {transaction.categoryName} · {formatDate(transaction.date)}
+                              {transaction.categoryName ?? 'Câmbio'} · {formatDate(transaction.date)}
                             </p>
                           </div>
                           <p className={`font-heading text-sm tabular-nums ${tone.text}`}>

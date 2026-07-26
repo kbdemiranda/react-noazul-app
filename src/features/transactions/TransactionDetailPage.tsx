@@ -63,7 +63,7 @@ export function TransactionDetailPage() {
   const transaction = transactionQuery.data
   if (!transaction) return null
   const tone = flowTone(transaction.type)
-  const { text: categoryText, bg: categoryBg } = categoryColor(transaction.categoryName, transaction.type)
+  const { text: categoryText, bg: categoryBg } = categoryColor(transaction.categoryName ?? 'Câmbio', transaction.type)
 
   return (
     <div className="flex flex-col gap-4">
@@ -77,20 +77,20 @@ export function TransactionDetailPage() {
 
       <Card className="flex flex-col gap-4">
         <div className="flex items-center gap-3">
-          <CategoryIconBadge name={transaction.categoryName} type={transaction.type} size="lg" />
+          <CategoryIconBadge name={transaction.categoryName ?? 'Câmbio'} type={transaction.type} size="lg" />
           <div>
             <h1 className="font-heading text-base font-semibold text-ink">{transaction.description}</h1>
             <span
               className={`mt-1 inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${categoryBg} ${categoryText}`}
             >
-              {flowTypeLabels[transaction.type]} · {transaction.categoryName}
+              {flowTypeLabels[transaction.type]} · {transaction.categoryName ?? 'Câmbio'}
             </span>
           </div>
         </div>
 
         <p className={`font-heading text-4xl tabular-nums ${tone.text}`}>
           {tone.sign}
-          {formatCurrency(transaction.amount)}
+          {formatCurrency(transaction.amount, transaction.fromAccountCurrency ?? undefined)}
         </p>
 
         <dl className="flex flex-col gap-2 border-y border-black/[.08] py-3.5 text-sm">
@@ -104,10 +104,18 @@ export function TransactionDetailPage() {
             <dt className="text-ink/60">Origem</dt>
             <dd className="text-ink">{transaction.fromAccountName ?? transaction.fromCreditCardName}</dd>
           </div>
-          {transaction.type === 'TRANSFER' && (
+          {(transaction.type === 'TRANSFER' || transaction.type === 'EXCHANGE') && (
             <div className="flex items-center justify-between">
               <dt className="text-ink/60">Conta de destino</dt>
               <dd className="text-ink">{transaction.toAccountName}</dd>
+            </div>
+          )}
+          {transaction.type === 'EXCHANGE' && transaction.convertedAmount != null && (
+            <div className="flex items-center justify-between">
+              <dt className="text-ink/60">Valor convertido</dt>
+              <dd className="text-ink">
+                {formatCurrency(transaction.convertedAmount, transaction.toAccountCurrency ?? undefined)}
+              </dd>
             </div>
           )}
         </dl>

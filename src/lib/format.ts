@@ -1,11 +1,20 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
-const currencyFormatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' })
+const currencyFormatters = new Map<string, Intl.NumberFormat>()
 
-export function formatCurrency(value: string | number): string {
+function currencyFormatter(currency: string): Intl.NumberFormat {
+  let formatter = currencyFormatters.get(currency)
+  if (!formatter) {
+    formatter = new Intl.NumberFormat('pt-BR', { style: 'currency', currency })
+    currencyFormatters.set(currency, formatter)
+  }
+  return formatter
+}
+
+export function formatCurrency(value: string | number, currency = 'BRL'): string {
   const numeric = typeof value === 'string' ? Number(value) : value
-  return currencyFormatter.format(Number.isFinite(numeric) ? numeric : 0)
+  return currencyFormatter(currency).format(Number.isFinite(numeric) ? numeric : 0)
 }
 
 export function formatDate(isoDate: string): string {

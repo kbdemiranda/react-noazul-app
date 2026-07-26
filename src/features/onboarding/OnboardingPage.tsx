@@ -55,7 +55,10 @@ export function OnboardingPage() {
   const submitAccount = accountForm.handleSubmit(async (values) => {
     setSubmitError(null)
     try {
-      await accountsApi.create(values)
+      // Onboarding always starts a plain BRL account — additional currencies
+      // (making it multi-currency, e.g. Wise) can be added later from the
+      // Accounts page.
+      await accountsApi.create({ ...values, currency: 'BRL' })
       navigate('/', { replace: true })
     } catch (error) {
       setSubmitError(error)
@@ -65,7 +68,7 @@ export function OnboardingPage() {
   const submitCard = cardForm.handleSubmit(async (values) => {
     setSubmitError(null)
     try {
-      await creditCardsApi.create(values)
+      await creditCardsApi.create({ ...values, currency: 'BRL' })
       navigate('/', { replace: true })
     } catch (error) {
       setSubmitError(error)

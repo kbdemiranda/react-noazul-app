@@ -6,29 +6,41 @@ import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
 import { SegmentedControl } from '../../components/SegmentedControl'
-import { accountTypeLabels } from '../../lib/labels'
-import type { Account, AccountType } from '../../types/domain'
-import type { AccountPayload } from '../../api/accounts'
+import { CURRENCIES, accountTypeLabels } from '../../lib/labels'
+import type { Account, AccountType, Currency } from '../../types/domain'
+import type { AccountCreatePayload, AccountUpdatePayload } from '../../api/accounts'
 import { useState } from 'react'
 
-const schema = z.object({
-  name: z.string().min(1, 'Informe um nome'),
-  bankName: z.string().min(1, 'Informe o banco'),
-  type: z.enum(['CHECKING', 'SAVINGS', 'DIGITAL_WALLET', 'OTHER']),
-  balance: z.coerce.number({ message: 'Informe um valor válido' }),
-})
+function buildSchema(isCreate: boolean) {
+  return z
+    .object({
+      name: z.string().min(1, 'Informe um nome'),
+      bankName: z.string().min(1, 'Informe o banco'),
+      type: z.enum(['CHECKING', 'SAVINGS', 'DIGITAL_WALLET', 'OTHER']),
+      currency: z.enum(['BRL', 'USD', 'EUR', 'GBP', 'ARS']).optional(),
+      balance: z.coerce.number({ message: 'Informe um valor válido' }).optional(),
+    })
+    .superRefine((values, ctx) => {
+      if (isCreate && !values.currency) {
+        ctx.addIssue({ code: 'custom', message: 'Escolha uma moeda', path: ['currency'] })
+      }
+    })
+}
 
-type FormInput = z.input<typeof schema>
-type FormValues = z.output<typeof schema>
+type FormInput = z.input<ReturnType<typeof buildSchema>>
+type FormValues = z.output<ReturnType<typeof buildSchema>>
 
 interface AccountFormModalProps {
   account?: Account
   onClose: () => void
-  onSubmit: (payload: AccountPayload) => Promise<void>
+  onSubmit: (payload: AccountCreatePayload | AccountUpdatePayload) => Promise<void>
 }
 
 export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModalProps) {
   const [submitError, setSubmitError] = useState<unknown>(null)
+  const isCreate = !account
+  const schema = buildSchema(isCreate)
+
   const {
     register,
     handleSubmit,
@@ -38,16 +50,29 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: account
-      ? { name: account.name, bankName: account.bankName, type: account.type, balance: account.balance }
-      : { type: 'CHECKING' as AccountType, balance: 0 },
+      ? { name: account.name, bankName: account.bankName, type: account.type }
+      : { type: 'CHECKING' as AccountType, currency: 'BRL' as Currency, balance: 0 },
   })
 
   const selectedType = watch('type')
+  const selectedCurrency = watch('currency')
 
   const submit = async (values: FormValues) => {
     setSubmitError(null)
     try {
-      await onSubmit(values)
+      if (isCreate) {
+        const payload: AccountCreatePayload = {
+          name: values.name,
+          bankName: values.bankName,
+          type: values.type,
+          currency: values.currency!,
+          balance: values.balance ?? 0,
+        }
+        await onSubmit(payload)
+      } else {
+        const payload: AccountUpdatePayload = { name: values.name, bankName: values.bankName, type: values.type }
+        await onSubmit(payload)
+      }
       onClose()
     } catch (error) {
       setSubmitError(error)
@@ -75,9 +100,22 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
             className="w-full"
           />
         </Field>
-        <Field label="Saldo" htmlFor="balance" error={errors.balance?.message}>
-          <input id="balance" type="number" step="0.01" className={inputClass} {...register('balance')} />
-        </Field>
+        {isCreate && (
+          <>
+            <Field label="Moeda" htmlFor="currency" error={errors.currency?.message}>
+              <SegmentedControl
+                name="currency"
+                value={selectedCurrency ?? 'BRL'}
+                onChange={(value) => setValue('currency', value, { shouldValidate: true })}
+                options={CURRENCIES.map((currency) => ({ value: currency, label: currency }))}
+                className="w-full"
+              />
+            </Field>
+            <Field label="Saldo" htmlFor="balance" error={errors.balance?.message}>
+              <input id="balance" type="number" step="0.01" className={inputClass} {...register('balance')} />
+            </Field>
+          </>
+        )}
 
         {Boolean(submitError) && <ErrorBanner error={submitError} />}
 

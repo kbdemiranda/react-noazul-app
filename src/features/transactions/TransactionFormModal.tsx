@@ -13,43 +13,70 @@ import { Modal } from '../../components/Modal'
 import { SegmentedControl } from '../../components/SegmentedControl'
 import { WarningBanner } from '../../components/WarningBanner'
 import { todayIsoDate } from '../../lib/format'
+import { flowTypeLabels } from '../../lib/labels'
 
 const schema = z
   .object({
     description: z.string().min(1, 'Informe uma descrição'),
     amount: z.coerce.number().positive('Informe um valor maior que zero'),
-    type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']),
+    type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER', 'EXCHANGE']),
     date: z.string().min(1, 'Informe a data'),
     time: z.string().optional(),
-    categoryUuid: z.string().min(1, 'Escolha uma categoria'),
+    categoryUuid: z.string().optional(),
     destination: z.enum(['account', 'creditCard']),
-    accountUuid: z.string().optional(),
+    accountBalanceUuid: z.string().optional(),
     creditCardUuid: z.string().optional(),
-    toAccountUuid: z.string().optional(),
+    toAccountBalanceUuid: z.string().optional(),
+    convertedAmount: z.coerce.number().optional(),
   })
   .superRefine((values, ctx) => {
-    if (values.type === 'TRANSFER') {
-      if (!values.accountUuid) {
-        ctx.addIssue({ code: 'custom', message: 'Escolha a conta de origem', path: ['accountUuid'] })
+    if (values.type === 'EXCHANGE') {
+      if (!values.accountBalanceUuid) {
+        ctx.addIssue({ code: 'custom', message: 'Escolha o saldo de origem', path: ['accountBalanceUuid'] })
       }
-      if (!values.toAccountUuid) {
-        ctx.addIssue({ code: 'custom', message: 'Escolha a conta de destino', path: ['toAccountUuid'] })
-      } else if (values.accountUuid && values.accountUuid === values.toAccountUuid) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Origem e destino devem ser contas diferentes.',
-          path: ['toAccountUuid'],
-        })
+      if (!values.toAccountBalanceUuid) {
+        ctx.addIssue({ code: 'custom', message: 'Escolha o saldo de destino', path: ['toAccountBalanceUuid'] })
+      }
+      if (!values.convertedAmount || values.convertedAmount <= 0) {
+        ctx.addIssue({ code: 'custom', message: 'Informe o valor convertido', path: ['convertedAmount'] })
       }
       return
     }
-    if (values.destination === 'account' ? !values.accountUuid : !values.creditCardUuid) {
-      ctx.addIssue({ code: 'custom', message: 'Escolha uma conta ou cartão', path: ['accountUuid'] })
+    if (values.type === 'TRANSFER') {
+      if (!values.accountBalanceUuid) {
+        ctx.addIssue({ code: 'custom', message: 'Escolha a conta de origem', path: ['accountBalanceUuid'] })
+      }
+      if (!values.toAccountBalanceUuid) {
+        ctx.addIssue({ code: 'custom', message: 'Escolha a conta de destino', path: ['toAccountBalanceUuid'] })
+      } else if (values.accountBalanceUuid && values.accountBalanceUuid === values.toAccountBalanceUuid) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Origem e destino devem ser saldos diferentes.',
+          path: ['toAccountBalanceUuid'],
+        })
+      }
+      if (!values.categoryUuid) {
+        ctx.addIssue({ code: 'custom', message: 'Escolha uma categoria', path: ['categoryUuid'] })
+      }
+      return
+    }
+    if (!values.categoryUuid) {
+      ctx.addIssue({ code: 'custom', message: 'Escolha uma categoria', path: ['categoryUuid'] })
+    }
+    if (values.destination === 'account' ? !values.accountBalanceUuid : !values.creditCardUuid) {
+      ctx.addIssue({ code: 'custom', message: 'Escolha uma conta ou cartão', path: ['accountBalanceUuid'] })
     }
   })
 
 type FormInput = z.input<typeof schema>
 type FormValues = z.output<typeof schema>
+
+interface BalanceOption {
+  balanceUuid: string
+  accountUuid: string
+  currency: string
+  label: string
+}
 
 interface TransactionFormModalProps {
   transaction?: Transaction
@@ -68,6 +95,19 @@ export function TransactionFormModal({
 }: TransactionFormModalProps) {
   const [submitError, setSubmitError] = useState<unknown>(null)
 
+  const balanceOptions = useMemo<BalanceOption[]>(
+    () =>
+      accounts.flatMap((account) =>
+        account.balances.map((balance) => ({
+          balanceUuid: balance.uuid,
+          accountUuid: account.uuid,
+          currency: balance.currency,
+          label: `${account.name} · ${balance.currency}`,
+        })),
+      ),
+    [accounts],
+  )
+
   const {
     register,
     handleSubmit,
@@ -83,11 +123,12 @@ export function TransactionFormModal({
           type: transaction.type,
           date: transaction.date,
           time: transaction.time?.slice(0, 5),
-          categoryUuid: transaction.categoryUuid,
-          destination: transaction.fromAccountUuid ? 'account' : 'creditCard',
-          accountUuid: transaction.fromAccountUuid ?? undefined,
+          categoryUuid: transaction.categoryUuid ?? undefined,
+          destination: transaction.fromAccountBalanceUuid ? 'account' : 'creditCard',
+          accountBalanceUuid: transaction.fromAccountBalanceUuid ?? undefined,
           creditCardUuid: transaction.fromCreditCardUuid ?? undefined,
-          toAccountUuid: transaction.toAccountUuid ?? undefined,
+          toAccountBalanceUuid: transaction.toAccountBalanceUuid ?? undefined,
+          convertedAmount: transaction.convertedAmount ?? undefined,
         }
       : {
           type: 'EXPENSE',
@@ -98,11 +139,23 @@ export function TransactionFormModal({
 
   const selectedType = watch('type')
   const destination = watch('destination')
+  const sourceBalanceUuid = watch('accountBalanceUuid')
   const isTransfer = selectedType === 'TRANSFER'
-  const notEnoughAccountsForTransfer = isTransfer && accounts.length < 2
+  const isExchange = selectedType === 'EXCHANGE'
+  const notEnoughAccountsForTransfer =
+    isTransfer && new Set(balanceOptions.map((option) => option.accountUuid)).size < 2
+  const notEnoughBalancesForExchange = isExchange && !accounts.some((account) => account.balances.length >= 2)
+
+  const sourceBalance = balanceOptions.find((option) => option.balanceUuid === sourceBalanceUuid)
+  const transferTargetOptions = balanceOptions.filter((option) => option.accountUuid !== sourceBalance?.accountUuid)
+  const exchangeTargetOptions = balanceOptions.filter(
+    (option) => option.accountUuid === sourceBalance?.accountUuid && option.balanceUuid !== sourceBalanceUuid,
+  )
+
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
   const categoryOptions = useMemo(
-    () => (isTransfer ? (categoriesQuery.data ?? []) : (categoriesQuery.data ?? []).filter((c) => c.type === selectedType)),
+    () =>
+      isTransfer ? (categoriesQuery.data ?? []) : (categoriesQuery.data ?? []).filter((c) => c.type === selectedType),
     [categoriesQuery.data, selectedType, isTransfer],
   )
 
@@ -115,10 +168,22 @@ export function TransactionFormModal({
         type: values.type,
         date: values.date,
         time: values.time ? `${values.time}:00` : null,
-        categoryUuid: values.categoryUuid,
-        fromAccountUuid: values.type === 'TRANSFER' ? values.accountUuid : values.destination === 'account' ? values.accountUuid : null,
-        fromCreditCardUuid: values.type === 'TRANSFER' ? null : values.destination === 'creditCard' ? values.creditCardUuid : null,
-        toAccountUuid: values.type === 'TRANSFER' ? values.toAccountUuid : null,
+        categoryUuid: values.type === 'EXCHANGE' ? null : (values.categoryUuid ?? null),
+        fromAccountBalanceUuid:
+          values.type === 'TRANSFER' || values.type === 'EXCHANGE'
+            ? values.accountBalanceUuid
+            : values.destination === 'account'
+              ? values.accountBalanceUuid
+              : null,
+        fromCreditCardUuid:
+          values.type === 'TRANSFER' || values.type === 'EXCHANGE'
+            ? null
+            : values.destination === 'creditCard'
+              ? values.creditCardUuid
+              : null,
+        toAccountBalanceUuid:
+          values.type === 'TRANSFER' || values.type === 'EXCHANGE' ? values.toAccountBalanceUuid : null,
+        convertedAmount: values.type === 'EXCHANGE' ? values.convertedAmount : null,
       })
       onClose()
     } catch (error) {
@@ -134,9 +199,10 @@ export function TransactionFormModal({
           value={selectedType}
           onChange={(value) => setValue('type', value, { shouldValidate: true })}
           options={[
-            { value: 'EXPENSE', label: 'Despesa' },
-            { value: 'INCOME', label: 'Receita' },
-            { value: 'TRANSFER', label: 'Transferência' },
+            { value: 'EXPENSE', label: flowTypeLabels.EXPENSE },
+            { value: 'INCOME', label: flowTypeLabels.INCOME },
+            { value: 'TRANSFER', label: flowTypeLabels.TRANSFER },
+            { value: 'EXCHANGE', label: flowTypeLabels.EXCHANGE },
           ]}
         />
 
@@ -157,35 +223,37 @@ export function TransactionFormModal({
           <input id="time" type="time" className={inputClass} {...register('time')} />
         </Field>
 
-        <Field label="Categoria" htmlFor="categoryUuid" error={errors.categoryUuid?.message}>
-          <select id="categoryUuid" className={inputClass} {...register('categoryUuid')}>
-            <option value="">Selecione...</option>
-            {categoryOptions.map((category) => (
-              <option key={category.uuid} value={category.uuid}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </Field>
+        {!isExchange && (
+          <Field label="Categoria" htmlFor="categoryUuid" error={errors.categoryUuid?.message}>
+            <select id="categoryUuid" className={inputClass} {...register('categoryUuid')}>
+              <option value="">Selecione...</option>
+              {categoryOptions.map((category) => (
+                <option key={category.uuid} value={category.uuid}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
-        {isTransfer ? (
+        {isTransfer && (
           <>
-            <Field label="Conta de origem" htmlFor="accountUuid" error={errors.accountUuid?.message}>
-              <select id="accountUuid" className={inputClass} {...register('accountUuid')}>
+            <Field label="Conta de origem" htmlFor="accountBalanceUuid" error={errors.accountBalanceUuid?.message}>
+              <select id="accountBalanceUuid" className={inputClass} {...register('accountBalanceUuid')}>
                 <option value="">Selecione...</option>
-                {accounts.map((account) => (
-                  <option key={account.uuid} value={account.uuid}>
-                    {account.name}
+                {balanceOptions.map((option) => (
+                  <option key={option.balanceUuid} value={option.balanceUuid}>
+                    {option.label}
                   </option>
                 ))}
               </select>
             </Field>
-            <Field label="Conta de destino" htmlFor="toAccountUuid" error={errors.toAccountUuid?.message}>
-              <select id="toAccountUuid" className={inputClass} {...register('toAccountUuid')}>
+            <Field label="Conta de destino" htmlFor="toAccountBalanceUuid" error={errors.toAccountBalanceUuid?.message}>
+              <select id="toAccountBalanceUuid" className={inputClass} {...register('toAccountBalanceUuid')}>
                 <option value="">Selecione...</option>
-                {accounts.map((account) => (
-                  <option key={account.uuid} value={account.uuid}>
-                    {account.name}
+                {transferTargetOptions.map((option) => (
+                  <option key={option.balanceUuid} value={option.balanceUuid}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -194,8 +262,43 @@ export function TransactionFormModal({
               <WarningBanner>Você precisa de pelo menos duas contas bancárias para transferir.</WarningBanner>
             )}
           </>
-        ) : (
-          <Field label="Conta ou cartão" htmlFor="accountUuid">
+        )}
+
+        {isExchange && (
+          <>
+            <Field label="Saldo de origem" htmlFor="accountBalanceUuid" error={errors.accountBalanceUuid?.message}>
+              <select id="accountBalanceUuid" className={inputClass} {...register('accountBalanceUuid')}>
+                <option value="">Selecione...</option>
+                {balanceOptions.map((option) => (
+                  <option key={option.balanceUuid} value={option.balanceUuid}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Saldo de destino" htmlFor="toAccountBalanceUuid" error={errors.toAccountBalanceUuid?.message}>
+              <select id="toAccountBalanceUuid" className={inputClass} {...register('toAccountBalanceUuid')}>
+                <option value="">Selecione...</option>
+                {exchangeTargetOptions.map((option) => (
+                  <option key={option.balanceUuid} value={option.balanceUuid}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Valor convertido (moeda de destino)" htmlFor="convertedAmount" error={errors.convertedAmount?.message}>
+              <input id="convertedAmount" type="number" step="0.01" className={inputClass} {...register('convertedAmount')} />
+            </Field>
+            {notEnoughBalancesForExchange && (
+              <WarningBanner>
+                Você precisa de uma conta com pelo menos duas moedas para fazer um câmbio interno.
+              </WarningBanner>
+            )}
+          </>
+        )}
+
+        {!isTransfer && !isExchange && (
+          <Field label="Conta ou cartão" htmlFor="accountBalanceUuid">
             <SegmentedControl
               name="destination"
               value={destination}
@@ -207,11 +310,11 @@ export function TransactionFormModal({
               className="mb-2"
             />
             {destination === 'account' ? (
-              <select id="accountUuid" className={inputClass} {...register('accountUuid')}>
+              <select id="accountBalanceUuid" className={inputClass} {...register('accountBalanceUuid')}>
                 <option value="">Selecione...</option>
-                {accounts.map((account) => (
-                  <option key={account.uuid} value={account.uuid}>
-                    {account.name}
+                {balanceOptions.map((option) => (
+                  <option key={option.balanceUuid} value={option.balanceUuid}>
+                    {option.label}
                   </option>
                 ))}
               </select>
@@ -225,7 +328,9 @@ export function TransactionFormModal({
                 ))}
               </select>
             )}
-            {errors.accountUuid?.message && <span className="text-xs text-expense">{errors.accountUuid.message}</span>}
+            {errors.accountBalanceUuid?.message && (
+              <span className="text-xs text-expense">{errors.accountBalanceUuid.message}</span>
+            )}
           </Field>
         )}
 
@@ -235,7 +340,11 @@ export function TransactionFormModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button type="submit" isLoading={isSubmitting} disabled={notEnoughAccountsForTransfer}>
+          <Button
+            type="submit"
+            isLoading={isSubmitting}
+            disabled={notEnoughAccountsForTransfer || notEnoughBalancesForExchange}
+          >
             Salvar
           </Button>
         </div>

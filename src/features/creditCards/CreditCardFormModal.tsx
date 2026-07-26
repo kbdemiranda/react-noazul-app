@@ -7,11 +7,14 @@ import { Button } from '../../components/Button'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
-import type { CreditCard } from '../../types/domain'
+import { SegmentedControl } from '../../components/SegmentedControl'
+import { CURRENCIES } from '../../lib/labels'
+import type { Currency, CreditCard } from '../../types/domain'
 
 const schema = z.object({
   name: z.string().min(1, 'Informe um nome'),
   issuer: z.string().min(1, 'Informe o emissor'),
+  currency: z.enum(['BRL', 'USD', 'EUR', 'GBP', 'ARS']),
   creditLimit: z.coerce.number().positive('Informe um limite maior que zero'),
   closingDay: z.coerce.number().int().min(1).max(31),
   dueDay: z.coerce.number().int().min(1).max(31),
@@ -31,6 +34,8 @@ export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormM
   const {
     register,
     handleSubmit,
+    watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
@@ -38,12 +43,15 @@ export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormM
       ? {
           name: card.name,
           issuer: card.issuer,
+          currency: card.currency,
           creditLimit: card.creditLimit,
           closingDay: card.closingDay,
           dueDay: card.dueDay,
         }
-      : { closingDay: 1, dueDay: 10 },
+      : { currency: 'BRL' as Currency, closingDay: 1, dueDay: 10 },
   })
+
+  const selectedCurrency = watch('currency')
 
   const submit = async (values: FormValues) => {
     setSubmitError(null)
@@ -63,6 +71,15 @@ export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormM
         </Field>
         <Field label="Emissor" htmlFor="issuer" error={errors.issuer?.message}>
           <input id="issuer" className={inputClass} placeholder="Itaucard, Inter..." {...register('issuer')} />
+        </Field>
+        <Field label="Moeda" htmlFor="currency" error={errors.currency?.message}>
+          <SegmentedControl
+            name="currency"
+            value={selectedCurrency}
+            onChange={(value) => setValue('currency', value, { shouldValidate: true })}
+            options={CURRENCIES.map((currency) => ({ value: currency, label: currency }))}
+            className="w-full"
+          />
         </Field>
         <Field label="Limite" htmlFor="creditLimit" error={errors.creditLimit?.message}>
           <input id="creditLimit" type="number" step="0.01" className={inputClass} {...register('creditLimit')} />

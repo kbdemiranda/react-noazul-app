@@ -1,36 +1,50 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Landmark, Plus } from 'lucide-react'
 import { useState } from 'react'
-import { accountsApi, type AccountPayload } from '../../api/accounts'
+import {
+  accountsApi,
+  type AccountBalancePayload,
+  type AccountCreatePayload,
+  type AccountUpdatePayload,
+} from '../../api/accounts'
 import { Badge } from '../../components/Badge'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { BankLogo } from '../../lib/bankLogos'
-import { accountTypeLabels } from '../../lib/labels'
+import { accountTypeLabels, currencyLabels } from '../../lib/labels'
 import { formatCurrency } from '../../lib/format'
 import type { Account } from '../../types/domain'
 import { AccountFormModal } from './AccountFormModal'
+import { AddAccountBalanceModal } from './AddAccountBalanceModal'
 
 export function AccountsPage() {
   const queryClient = useQueryClient()
   const [editingAccount, setEditingAccount] = useState<Account | undefined>(undefined)
+  const [addingBalanceTo, setAddingBalanceTo] = useState<Account | undefined>(undefined)
   const [isCreating, setIsCreating] = useState(false)
 
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
 
   const createMutation = useMutation({
-    mutationFn: (payload: AccountPayload) => accountsApi.create(payload),
+    mutationFn: (payload: AccountCreatePayload) => accountsApi.create(payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
   })
 
   const updateMutation = useMutation({
-    mutationFn: ({ uuid, payload }: { uuid: string; payload: AccountPayload }) => accountsApi.update(uuid, payload),
+    mutationFn: ({ uuid, payload }: { uuid: string; payload: AccountUpdatePayload }) =>
+      accountsApi.update(uuid, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
   })
 
   const archiveMutation = useMutation({
     mutationFn: (uuid: string) => accountsApi.archive(uuid),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+  })
+
+  const addBalanceMutation = useMutation({
+    mutationFn: ({ uuid, payload }: { uuid: string; payload: AccountBalancePayload }) =>
+      accountsApi.addBalance(uuid, payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
   })
 
@@ -79,10 +93,24 @@ export function AccountsPage() {
                   <Badge variant="neutral">{accountTypeLabels[account.type]}</Badge>
                 </div>
               </div>
-              <p className="font-heading text-2xl tabular-nums text-ink">{formatCurrency(account.balance)}</p>
+              <div className="flex flex-col gap-1.5">
+                {account.balances.map((balance) => (
+                  <div key={balance.uuid} className="flex items-baseline justify-between gap-2">
+                    <p className="font-heading text-2xl tabular-nums text-ink">
+                      {formatCurrency(balance.balance, balance.currency)}
+                    </p>
+                    <Badge variant="neutral" title={currencyLabels[balance.currency]}>
+                      {balance.currency}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
               <div className="flex gap-2">
                 <Button variant="secondary" className="flex-1" onClick={() => setEditingAccount(account)}>
                   Editar
+                </Button>
+                <Button variant="secondary" className="flex-1" onClick={() => setAddingBalanceTo(account)}>
+                  + Moeda
                 </Button>
                 <Button
                   variant="secondary"
@@ -102,7 +130,7 @@ export function AccountsPage() {
         <AccountFormModal
           onClose={() => setIsCreating(false)}
           onSubmit={async (payload) => {
-            await createMutation.mutateAsync(payload)
+            await createMutation.mutateAsync(payload as AccountCreatePayload)
           }}
         />
       )}
@@ -112,7 +140,17 @@ export function AccountsPage() {
           account={editingAccount}
           onClose={() => setEditingAccount(undefined)}
           onSubmit={async (payload) => {
-            await updateMutation.mutateAsync({ uuid: editingAccount.uuid, payload })
+            await updateMutation.mutateAsync({ uuid: editingAccount.uuid, payload: payload as AccountUpdatePayload })
+          }}
+        />
+      )}
+
+      {addingBalanceTo && (
+        <AddAccountBalanceModal
+          account={addingBalanceTo}
+          onClose={() => setAddingBalanceTo(undefined)}
+          onSubmit={async (payload) => {
+            await addBalanceMutation.mutateAsync({ uuid: addingBalanceTo.uuid, payload })
           }}
         />
       )}

@@ -1,5 +1,5 @@
-import type { Account, Attachment, AuthTokens, Category, CreditCard, Transaction, User } from '../types/domain'
-import type { AccountPayload } from './accounts'
+import type { Account, AccountBalance, Attachment, AuthTokens, Category, CreditCard, Transaction, User } from '../types/domain'
+import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload } from './accounts'
 import type { CreditCardPayload } from './creditCards'
 import type { CategoryPayload } from './categories'
 import type { TransactionPayload } from './transactions'
@@ -61,19 +61,40 @@ let transactions: Transaction[] = []
 const archivedTransactionUuids = new Set<string>()
 const attachmentsByTransaction = new Map<string, Attachment[]>()
 
+function findAccountAndBalance(
+  balanceUuid: string | null | undefined,
+): { account: Account; balance: AccountBalance } | undefined {
+  if (!balanceUuid) return undefined
+  for (const account of accounts) {
+    const balance = account.balances.find((b) => b.uuid === balanceUuid)
+    if (balance) return { account, balance }
+  }
+  return undefined
+}
+
+function findBalance(balanceUuid: string | null | undefined): AccountBalance | undefined {
+  return findAccountAndBalance(balanceUuid)?.balance
+}
+
 function adjustAccountBalance(transaction: Transaction, sign: 1 | -1): void {
   if (transaction.type === 'TRANSFER') {
-    const from = transaction.fromAccountUuid ? accounts.find((a) => a.uuid === transaction.fromAccountUuid) : undefined
-    const to = transaction.toAccountUuid ? accounts.find((a) => a.uuid === transaction.toAccountUuid) : undefined
+    const from = findBalance(transaction.fromAccountBalanceUuid)
+    const to = findBalance(transaction.toAccountBalanceUuid)
     if (from) from.balance -= transaction.amount * sign
     if (to) to.balance += transaction.amount * sign
     return
   }
-  if (!transaction.fromAccountUuid) return
-  const account = accounts.find((a) => a.uuid === transaction.fromAccountUuid)
-  if (!account) return
+  if (transaction.type === 'EXCHANGE') {
+    const from = findBalance(transaction.fromAccountBalanceUuid)
+    const to = findBalance(transaction.toAccountBalanceUuid)
+    if (from) from.balance -= transaction.amount * sign
+    if (to && transaction.convertedAmount != null) to.balance += transaction.convertedAmount * sign
+    return
+  }
+  const balance = findBalance(transaction.fromAccountBalanceUuid)
+  if (!balance) return
   const delta = transaction.type === 'EXPENSE' ? -transaction.amount : transaction.amount
-  account.balance += delta * sign
+  balance.balance += delta * sign
 }
 
 export const mockAuth = {
@@ -117,18 +138,34 @@ export const mockAccounts = {
     if (!found) throw new Error('Conta não encontrada.')
     return delay(found)
   },
-  async create(payload: AccountPayload): Promise<Account> {
-    const account: Account = { uuid: uuid(), ...payload }
+  async create(payload: AccountCreatePayload): Promise<Account> {
+    const account: Account = {
+      uuid: uuid(),
+      name: payload.name,
+      bankName: payload.bankName,
+      type: payload.type,
+      balances: [{ uuid: uuid(), currency: payload.currency, balance: payload.balance }],
+    }
     accounts.push(account)
     return delay(account)
   },
-  async update(uuidStr: string, payload: AccountPayload): Promise<Account> {
+  async update(uuidStr: string, payload: AccountUpdatePayload): Promise<Account> {
     accounts = accounts.map((a) => (a.uuid === uuidStr ? { ...a, ...payload } : a))
     return delay(accounts.find((a) => a.uuid === uuidStr)!)
   },
   async archive(uuidStr: string): Promise<void> {
     accounts = accounts.filter((a) => a.uuid !== uuidStr)
     return delay(undefined)
+  },
+  async addBalance(uuidStr: string, payload: AccountBalancePayload): Promise<AccountBalance> {
+    const account = accounts.find((a) => a.uuid === uuidStr)
+    if (!account) throw new Error('Conta não encontrada.')
+    if (account.balances.some((b) => b.currency === payload.currency)) {
+      throw new Error(`Esta conta já possui um saldo em ${payload.currency}.`)
+    }
+    const balance: AccountBalance = { uuid: uuid(), currency: payload.currency, balance: payload.balance }
+    account.balances.push(balance)
+    return delay(balance)
   },
 }
 
@@ -199,12 +236,12 @@ export const mockTransactions = {
     return delay(found)
   },
   async create(payload: TransactionPayload): Promise<Transaction> {
-    const category = categories.find((c) => c.uuid === payload.categoryUuid)
-    const account = payload.fromAccountUuid ? accounts.find((a) => a.uuid === payload.fromAccountUuid) : undefined
+    const category = payload.categoryUuid ? categories.find((c) => c.uuid === payload.categoryUuid) : undefined
+    const from = findAccountAndBalance(payload.fromAccountBalanceUuid)
     const creditCard = payload.fromCreditCardUuid
       ? creditCards.find((c) => c.uuid === payload.fromCreditCardUuid)
       : undefined
-    const toAccount = payload.toAccountUuid ? accounts.find((a) => a.uuid === payload.toAccountUuid) : undefined
+    const to = findAccountAndBalance(payload.toAccountBalanceUuid)
     const now = new Date().toISOString()
     const transaction: Transaction = {
       uuid: uuid(),
@@ -213,14 +250,17 @@ export const mockTransactions = {
       type: payload.type,
       date: payload.date,
       time: payload.time ?? new Date().toTimeString().slice(0, 8),
-      categoryUuid: payload.categoryUuid,
-      categoryName: category?.name ?? '',
-      fromAccountUuid: account?.uuid ?? null,
-      fromAccountName: account?.name ?? null,
+      categoryUuid: category?.uuid ?? null,
+      categoryName: category?.name ?? null,
+      fromAccountBalanceUuid: from?.balance.uuid ?? null,
+      fromAccountName: from?.account.name ?? null,
+      fromAccountCurrency: from?.balance.currency ?? null,
       fromCreditCardUuid: creditCard?.uuid ?? null,
       fromCreditCardName: creditCard?.name ?? null,
-      toAccountUuid: toAccount?.uuid ?? null,
-      toAccountName: toAccount?.name ?? null,
+      toAccountBalanceUuid: to?.balance.uuid ?? null,
+      toAccountName: to?.account.name ?? null,
+      toAccountCurrency: to?.balance.currency ?? null,
+      convertedAmount: payload.convertedAmount ?? null,
       createdAt: now,
       updatedAt: now,
     }
@@ -234,12 +274,12 @@ export const mockTransactions = {
     const previous = transactions[index]
     adjustAccountBalance(previous, -1)
 
-    const category = categories.find((c) => c.uuid === payload.categoryUuid)
-    const account = payload.fromAccountUuid ? accounts.find((a) => a.uuid === payload.fromAccountUuid) : undefined
+    const category = payload.categoryUuid ? categories.find((c) => c.uuid === payload.categoryUuid) : undefined
+    const from = findAccountAndBalance(payload.fromAccountBalanceUuid)
     const creditCard = payload.fromCreditCardUuid
       ? creditCards.find((c) => c.uuid === payload.fromCreditCardUuid)
       : undefined
-    const toAccount = payload.toAccountUuid ? accounts.find((a) => a.uuid === payload.toAccountUuid) : undefined
+    const to = findAccountAndBalance(payload.toAccountBalanceUuid)
 
     const updated: Transaction = {
       ...previous,
@@ -248,14 +288,17 @@ export const mockTransactions = {
       type: payload.type,
       date: payload.date,
       time: payload.time ?? previous.time,
-      categoryUuid: payload.categoryUuid,
+      categoryUuid: category?.uuid ?? null,
       categoryName: category?.name ?? previous.categoryName,
-      fromAccountUuid: account?.uuid ?? null,
-      fromAccountName: account?.name ?? null,
+      fromAccountBalanceUuid: from?.balance.uuid ?? null,
+      fromAccountName: from?.account.name ?? null,
+      fromAccountCurrency: from?.balance.currency ?? null,
       fromCreditCardUuid: creditCard?.uuid ?? null,
       fromCreditCardName: creditCard?.name ?? null,
-      toAccountUuid: toAccount?.uuid ?? null,
-      toAccountName: toAccount?.name ?? null,
+      toAccountBalanceUuid: to?.balance.uuid ?? null,
+      toAccountName: to?.account.name ?? null,
+      toAccountCurrency: to?.balance.currency ?? null,
+      convertedAmount: payload.convertedAmount ?? null,
       updatedAt: new Date().toISOString(),
     }
     transactions[index] = updated

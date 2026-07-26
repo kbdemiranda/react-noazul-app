@@ -1,11 +1,12 @@
 import { apiClient } from './client'
 import { USE_MOCKS } from '../lib/mockConfig'
 import { mockCreditCards } from './mockStore'
-import type { CreditCard } from '../types/domain'
+import type { CreditCard, Currency } from '../types/domain'
 
 export interface CreditCardPayload {
   name: string
   issuer: string
+  currency: Currency
   creditLimit: number
   closingDay: number
   dueDay: number

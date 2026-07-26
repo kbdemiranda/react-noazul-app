@@ -19,14 +19,17 @@ export function Badge({
   variant = 'neutral',
   children,
   className = '',
+  title,
 }: {
   variant?: BadgeVariant
   children: ReactNode
   className?: string
+  title?: string
 }) {
   const Icon = variantIcon[variant]
   return (
     <span
+      title={title}
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${variantClasses[variant]} ${className}`}
     >
       {Icon && <Icon size={12} />}

@@ -15,13 +15,14 @@ import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate } from '../../lib/format'
 import { TransactionFormModal } from './TransactionFormModal'
 
-type Filter = 'ALL' | 'INCOME' | 'EXPENSE' | 'TRANSFER'
+type Filter = 'ALL' | 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'EXCHANGE'
 
 const filterOptions: { value: Filter; label: string }[] = [
   { value: 'ALL', label: 'Todas' },
   { value: 'EXPENSE', label: 'Despesas' },
   { value: 'INCOME', label: 'Receitas' },
   { value: 'TRANSFER', label: 'Transferências' },
+  { value: 'EXCHANGE', label: 'Câmbios' },
 ]
 
 export function TransactionsPage() {
@@ -94,12 +95,12 @@ export function TransactionsPage() {
               return (
                 <Link key={transaction.uuid} to={`/transacoes/${transaction.uuid}`}>
                   <Card className="flex items-center gap-3 transition-shadow hover:shadow-md">
-                    <CategoryIconBadge name={transaction.categoryName} type={transaction.type} />
+                    <CategoryIconBadge name={transaction.categoryName ?? 'Câmbio'} type={transaction.type} />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm text-ink">{transaction.description}</p>
                       <p className="text-xs text-ink/60">
-                        {transaction.categoryName} · {transaction.fromAccountName ?? transaction.fromCreditCardName} ·{' '}
-                        {formatDate(transaction.date)}
+                        {transaction.categoryName ?? 'Câmbio'} ·{' '}
+                        {transaction.fromAccountName ?? transaction.fromCreditCardName} · {formatDate(transaction.date)}
                       </p>
                     </div>
                     <p className={`font-heading text-sm tabular-nums ${tone.text}`}>
@@ -126,7 +127,10 @@ export function TransactionsPage() {
               <tbody>
                 {sorted.map((transaction) => {
                   const tone = flowTone(transaction.type)
-                  const { text: categoryText, bg: categoryBg } = categoryColor(transaction.categoryName, transaction.type)
+                  const { text: categoryText, bg: categoryBg } = categoryColor(
+                    transaction.categoryName ?? 'Câmbio',
+                    transaction.type,
+                  )
                   return (
                     <tr
                       key={transaction.uuid}
@@ -138,7 +142,7 @@ export function TransactionsPage() {
                         <span
                           className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ${categoryBg} ${categoryText}`}
                         >
-                          {transaction.categoryName}
+                          {transaction.categoryName ?? 'Câmbio'}
                         </span>
                       </td>
                       <td className="px-4 py-2.5">{transaction.fromAccountName ?? transaction.fromCreditCardName}</td>
