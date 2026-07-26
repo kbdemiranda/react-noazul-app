@@ -140,19 +140,27 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
                 Selecione mais de uma moeda para criar uma conta multi-moeda (ex: Wise, Revolut).
               </p>
             </div>
-            <div className="flex flex-col gap-3">
-              {selectedCurrencies.map((currency) => (
-                <Field key={currency} label={`Saldo inicial (${currency})`} htmlFor={`balance-${currency}`}>
-                  <input
-                    id={`balance-${currency}`}
-                    type="number"
-                    step="0.01"
-                    className={inputClass}
-                    value={balances[currency] ?? ''}
-                    onChange={(e) => setBalances((prev) => ({ ...prev, [currency]: e.target.value }))}
-                  />
-                </Field>
-              ))}
+            <div className="flex flex-col gap-1.5">
+              <span id="initial-balances-label" className="text-[13px] font-semibold text-ink">
+                Saldo inicial
+              </span>
+              <div role="group" aria-labelledby="initial-balances-label" className="grid grid-cols-2 gap-3">
+                {selectedCurrencies.map((currency) => (
+                  <div key={currency} className="flex flex-col gap-1">
+                    <label htmlFor={`balance-${currency}`} className="text-xs font-medium text-ink/60">
+                      {currency}
+                    </label>
+                    <input
+                      id={`balance-${currency}`}
+                      type="number"
+                      step="0.01"
+                      className={inputClass}
+                      value={balances[currency] ?? ''}
+                      onChange={(e) => setBalances((prev) => ({ ...prev, [currency]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           </>
         )}
