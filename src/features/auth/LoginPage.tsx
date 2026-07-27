@@ -28,13 +28,18 @@ export function LoginPage() {
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
+    // TODO: remover valores fixos
+    defaultValues: {
+      email: 'admin@noazul.com.br',
+      password: 'password',
+    },
   })
 
   const onSubmit = async (values: FormValues) => {
     setSubmitError(null)
     try {
       await login(values.email, values.password)
-      const redirectTo = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/'
+      const redirectTo = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard'
       navigate(redirectTo, { replace: true })
     } catch (error) {
       setSubmitError(error)

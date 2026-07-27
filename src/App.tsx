@@ -5,6 +5,7 @@ import { AuthProvider } from './context/AuthContext'
 import { LoginPage } from './features/auth/LoginPage'
 import { SignupPage } from './features/auth/SignupPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
+import { LandingPage } from './features/landing/LandingPage'
 import { OnboardingPage } from './features/onboarding/OnboardingPage'
 import { AccountsPage } from './features/accounts/AccountsPage'
 import { ExchangePage } from './features/exchange/ExchangePage'
@@ -33,6 +34,7 @@ function App() {
           <BackgroundOrbs />
           <div className="relative z-10">
             <Routes>
+              <Route path="/" element={<LandingPage />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/signup" element={<SignupPage />} />
 
@@ -40,7 +42,7 @@ function App() {
                 <Route path="/onboarding" element={<OnboardingPage />} />
 
                 <Route element={<AppLayout />}>
-                  <Route index element={<DashboardPage />} />
+                  <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/transacoes" element={<TransactionsPage />} />
                   <Route path="/transacoes/:uuid" element={<TransactionDetailPage />} />
                   <Route path="/contas" element={<AccountsPage />} />

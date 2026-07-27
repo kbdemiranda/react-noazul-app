@@ -5,7 +5,7 @@ import { BrandMark } from '../components/BrandMark'
 import { useAuth } from '../context/AuthContext'
 
 const navItems = [
-  { to: '/', label: 'Visão geral', end: true },
+  { to: '/dashboard', label: 'Visão geral', end: true },
   { to: '/transacoes', label: 'Transações' },
   { to: '/contas', label: 'Contas' },
   { to: '/cambio', label: 'Câmbio' },

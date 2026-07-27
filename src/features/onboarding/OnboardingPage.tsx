@@ -59,7 +59,7 @@ export function OnboardingPage() {
       // (making it multi-currency, e.g. Wise) can be added later from the
       // Accounts page.
       await accountsApi.create({ ...values, currency: 'BRL' })
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (error) {
       setSubmitError(error)
     }
@@ -69,7 +69,7 @@ export function OnboardingPage() {
     setSubmitError(null)
     try {
       await creditCardsApi.create({ ...values, currency: 'BRL' })
-      navigate('/', { replace: true })
+      navigate('/dashboard', { replace: true })
     } catch (error) {
       setSubmitError(error)
     }
@@ -182,7 +182,7 @@ export function OnboardingPage() {
       <div className="mt-6 flex items-center justify-between text-sm">
         <button
           type="button"
-          onClick={() => navigate('/', { replace: true })}
+          onClick={() => navigate('/dashboard', { replace: true })}
           className="font-medium text-ink/55 hover:text-ink"
         >
           Pular por agora
