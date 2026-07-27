@@ -1,25 +1,28 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
-import { useMemo, useState } from 'react'
+import { addMonths, addWeeks, addYears, parseISO } from 'date-fns'
+import { Check, ChevronDown, Clock, MessageSquareText, Paperclip, Repeat2 } from 'lucide-react'
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
-import type { Account, CreditCard, Transaction } from '../../types/domain'
+import type { Account, AccountType, CreditCard, Currency, Transaction } from '../../types/domain'
 import { categoriesApi } from '../../api/categories'
 import type { TransactionPayload } from '../../api/transactions'
 import { Button } from '../../components/Button'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
-import { SegmentedControl } from '../../components/SegmentedControl'
 import { WarningBanner } from '../../components/WarningBanner'
-import { todayIsoDate } from '../../lib/format'
-import { flowTypeLabels } from '../../lib/labels'
+import { BankLogo } from '../../lib/bankLogos'
+import { CategoryIconBadge } from '../../lib/categoryIcons'
+import { formatCurrency, formatDayMonthYearPtBR, todayIsoDate } from '../../lib/format'
+import { accountTypeLabels } from '../../lib/labels'
 
 const schema = z
   .object({
     description: z.string().min(1, 'Informe uma descrição'),
     amount: z.coerce.number().positive('Informe um valor maior que zero'),
-    type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER', 'EXCHANGE']),
+    type: z.enum(['INCOME', 'EXPENSE', 'TRANSFER']),
     date: z.string().min(1, 'Informe a data'),
     time: z.string().optional(),
     categoryUuid: z.string().optional(),
@@ -27,21 +30,8 @@ const schema = z
     accountBalanceUuid: z.string().optional(),
     creditCardUuid: z.string().optional(),
     toAccountBalanceUuid: z.string().optional(),
-    convertedAmount: z.coerce.number().optional(),
   })
   .superRefine((values, ctx) => {
-    if (values.type === 'EXCHANGE') {
-      if (!values.accountBalanceUuid) {
-        ctx.addIssue({ code: 'custom', message: 'Escolha o saldo de origem', path: ['accountBalanceUuid'] })
-      }
-      if (!values.toAccountBalanceUuid) {
-        ctx.addIssue({ code: 'custom', message: 'Escolha o saldo de destino', path: ['toAccountBalanceUuid'] })
-      }
-      if (!values.convertedAmount || values.convertedAmount <= 0) {
-        ctx.addIssue({ code: 'custom', message: 'Informe o valor convertido', path: ['convertedAmount'] })
-      }
-      return
-    }
     if (values.type === 'TRANSFER') {
       if (!values.accountBalanceUuid) {
         ctx.addIssue({ code: 'custom', message: 'Escolha a conta de origem', path: ['accountBalanceUuid'] })
@@ -74,8 +64,246 @@ type FormValues = z.output<typeof schema>
 interface BalanceOption {
   balanceUuid: string
   accountUuid: string
-  currency: string
+  accountName: string
+  bankName: string
+  accountType: AccountType
+  currency: Currency
+}
+
+interface PickerOption {
+  value: string
   label: string
+  sublabel?: string
+  leading: ReactNode
+}
+
+const TYPE_OPTIONS: { value: 'EXPENSE' | 'INCOME' | 'TRANSFER'; label: string; dot: string }[] = [
+  { value: 'EXPENSE', label: 'Despesa', dot: 'bg-expense' },
+  { value: 'INCOME', label: 'Receita', dot: 'bg-income' },
+  { value: 'TRANSFER', label: 'Transferência', dot: 'bg-brand-500' },
+]
+
+const HOURS = Array.from({ length: 24 }, (_, i) => String(i).padStart(2, '0'))
+const MINUTES = Array.from({ length: 60 }, (_, i) => String(i).padStart(2, '0'))
+
+function TimeField({
+  label,
+  hint,
+  value,
+  onChange,
+  error,
+}: {
+  label: string
+  hint?: string
+  value?: string
+  onChange: (value: string | undefined) => void
+  error?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [text, setText] = useState(value ?? '')
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [hour, minute] = value ? value.split(':') : [undefined, undefined]
+
+  useEffect(() => {
+    setText(value ?? '')
+  }, [value])
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  function handleTextChange(raw: string) {
+    const digits = raw.replace(/\D/g, '').slice(0, 4)
+    setText(digits.length > 2 ? `${digits.slice(0, 2)}:${digits.slice(2)}` : digits)
+    if (digits.length === 4) {
+      const h = Math.min(23, Number(digits.slice(0, 2)))
+      const m = Math.min(59, Number(digits.slice(2, 4)))
+      onChange(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`)
+    } else {
+      onChange(undefined)
+    }
+  }
+
+  return (
+    <div ref={containerRef} className="relative flex min-w-0 flex-1 flex-col gap-1.5">
+      <span className="text-[13px] font-semibold text-ink">
+        {label}
+        {hint && <span className="ml-1 text-[12.5px] font-normal text-ink/55">{hint}</span>}
+      </span>
+      <div className="flex h-11 w-full items-center gap-2 rounded-2xl bg-surface px-3.5 focus-within:ring-2 focus-within:ring-brand-500">
+        <Clock size={14} className="flex-none text-ink/45" />
+        <input
+          value={text}
+          onChange={(event) => handleTextChange(event.target.value)}
+          onFocus={() => setIsOpen(true)}
+          inputMode="numeric"
+          placeholder="--:--"
+          className="min-w-0 flex-1 bg-transparent font-data text-sm text-ink outline-none placeholder:text-ink/45"
+        />
+        <button
+          type="button"
+          onClick={() => setIsOpen((open) => !open)}
+          className="flex-none text-ink/45"
+          aria-label="Abrir seletor de hora"
+        >
+          <ChevronDown size={14} />
+        </button>
+      </div>
+
+      {isOpen && (
+        <div className="glass-surface absolute top-full z-10 mt-1.5 w-full min-w-[150px] rounded-2xl bg-white/95 p-2 shadow-lg">
+          <div className="flex gap-1.5">
+            <div className="flex max-h-40 flex-1 flex-col gap-0.5 overflow-y-auto">
+              {HOURS.map((h) => (
+                <button
+                  key={h}
+                  type="button"
+                  onClick={() => onChange(`${h}:${minute ?? '00'}`)}
+                  className={`rounded-lg py-1 text-center font-data text-sm ${
+                    h === hour ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink hover:bg-black/[.04]'
+                  }`}
+                >
+                  {h}
+                </button>
+              ))}
+            </div>
+            <div className="flex max-h-40 flex-1 flex-col gap-0.5 overflow-y-auto">
+              {MINUTES.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => onChange(`${hour ?? '00'}:${m}`)}
+                  className={`rounded-lg py-1 text-center font-data text-sm ${
+                    m === minute ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink hover:bg-black/[.04]'
+                  }`}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="mt-1.5 flex items-center justify-between border-t border-divider pt-1.5">
+            <button
+              type="button"
+              onClick={() => {
+                onChange(undefined)
+                setIsOpen(false)
+              }}
+              className="px-1 text-xs font-semibold text-ink/50 hover:text-ink"
+            >
+              Limpar
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const now = new Date()
+                onChange(`${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`)
+                setIsOpen(false)
+              }}
+              className="px-1 text-xs font-semibold text-brand-600 hover:text-brand-700"
+            >
+              Agora
+            </button>
+          </div>
+        </div>
+      )}
+      {error && <span className="text-xs text-expense">{error}</span>}
+    </div>
+  )
+}
+
+function PickerField({
+  label,
+  placeholder,
+  options,
+  value,
+  onChange,
+  error,
+}: {
+  label: string
+  placeholder: string
+  options: PickerOption[]
+  value?: string
+  onChange: (value: string) => void
+  error?: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [query, setQuery] = useState('')
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!isOpen) return
+    function handleClickOutside(event: MouseEvent) {
+      if (!containerRef.current?.contains(event.target as Node)) setIsOpen(false)
+    }
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [isOpen])
+
+  const selected = options.find((option) => option.value === value)
+  const filtered = query
+    ? options.filter((option) => option.label.toLowerCase().includes(query.toLowerCase()))
+    : options
+
+  return (
+    <div ref={containerRef} className="relative flex min-w-0 flex-1 flex-col gap-1.5">
+      <span className="text-[13px] font-semibold text-ink">{label}</span>
+      <button
+        type="button"
+        onClick={() => {
+          setIsOpen((open) => !open)
+          setQuery('')
+        }}
+        className={`flex h-11 w-full items-center gap-2 rounded-2xl bg-surface px-3.5 text-left text-sm outline-none focus:ring-2 focus:ring-brand-500 ${selected ? 'text-ink' : 'text-ink/45'}`}
+      >
+        {selected?.leading}
+        <span className="min-w-0 flex-1 truncate">{selected?.label ?? placeholder}</span>
+        <ChevronDown size={14} className="flex-none text-ink/45" />
+      </button>
+
+      {isOpen && (
+        <div className="glass-surface absolute top-full z-10 mt-1.5 w-full min-w-[220px] rounded-2xl bg-white/95 p-1.5 shadow-lg">
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            placeholder="Buscar..."
+            className="mb-1 h-8 w-full rounded-xl bg-black/[.04] px-3 text-sm text-ink outline-none"
+          />
+          <div className="flex max-h-52 flex-col gap-0.5 overflow-y-auto">
+            {filtered.length === 0 && <p className="px-2 py-2 text-xs text-ink/50">Nenhum resultado.</p>}
+            {filtered.map((option) => {
+              const isSelected = option.value === value
+              return (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => {
+                    onChange(option.value)
+                    setIsOpen(false)
+                  }}
+                  className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm ${isSelected ? 'bg-brand-100 text-brand-700' : 'text-ink hover:bg-black/[.04]'}`}
+                >
+                  {option.leading}
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate font-medium">{option.label}</span>
+                    {option.sublabel && <span className="block truncate text-[11px] text-ink/55">{option.sublabel}</span>}
+                  </span>
+                  {isSelected && <Check size={14} className="flex-none text-brand-600" />}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+      {error && <span className="text-xs text-expense">{error}</span>}
+    </div>
+  )
 }
 
 interface TransactionFormModalProps {
@@ -95,14 +323,25 @@ export function TransactionFormModal({
 }: TransactionFormModalProps) {
   const [submitError, setSubmitError] = useState<unknown>(null)
 
+  const [showRecurrence, setShowRecurrence] = useState(false)
+  const [repeatMode, setRepeatMode] = useState<'installment' | 'recurring'>('installment')
+  const [installments, setInstallments] = useState(2)
+  const [installmentInterval, setInstallmentInterval] = useState<'Semanas' | 'Meses'>('Meses')
+  const [recurrenceFrequency, setRecurrenceFrequency] = useState<'Semanal' | 'Mensal' | 'Anual'>('Mensal')
+  const [showNote, setShowNote] = useState(false)
+  const [note, setNote] = useState('')
+  const [showAttachmentsHint, setShowAttachmentsHint] = useState(false)
+
   const balanceOptions = useMemo<BalanceOption[]>(
     () =>
       accounts.flatMap((account) =>
         account.balances.map((balance) => ({
           balanceUuid: balance.uuid,
           accountUuid: account.uuid,
+          accountName: account.name,
+          bankName: account.bankName,
+          accountType: account.type,
           currency: balance.currency,
-          label: `${account.name} · ${balance.currency}`,
         })),
       ),
     [accounts],
@@ -120,7 +359,9 @@ export function TransactionFormModal({
       ? {
           description: transaction.description,
           amount: transaction.amount,
-          type: transaction.type,
+          // This modal no longer creates/edits EXCHANGE transactions (see TransactionDetailPage,
+          // which hides the edit action for that type), so the cast is always safe here.
+          type: transaction.type as 'INCOME' | 'EXPENSE' | 'TRANSFER',
           date: transaction.date,
           time: transaction.time?.slice(0, 5),
           categoryUuid: transaction.categoryUuid ?? undefined,
@@ -128,7 +369,6 @@ export function TransactionFormModal({
           accountBalanceUuid: transaction.fromAccountBalanceUuid ?? undefined,
           creditCardUuid: transaction.fromCreditCardUuid ?? undefined,
           toAccountBalanceUuid: transaction.toAccountBalanceUuid ?? undefined,
-          convertedAmount: transaction.convertedAmount ?? undefined,
         }
       : {
           type: 'EXPENSE',
@@ -139,18 +379,19 @@ export function TransactionFormModal({
 
   const selectedType = watch('type')
   const destination = watch('destination')
-  const sourceBalanceUuid = watch('accountBalanceUuid')
+  const accountBalanceUuid = watch('accountBalanceUuid')
+  const creditCardUuid = watch('creditCardUuid')
+  const toAccountBalanceUuid = watch('toAccountBalanceUuid')
+  const categoryUuid = watch('categoryUuid')
+  const amountValue = watch('amount')
+  const dateValue = watch('date')
+  const timeValue = watch('time')
   const isTransfer = selectedType === 'TRANSFER'
-  const isExchange = selectedType === 'EXCHANGE'
   const notEnoughAccountsForTransfer =
     isTransfer && new Set(balanceOptions.map((option) => option.accountUuid)).size < 2
-  const notEnoughBalancesForExchange = isExchange && !accounts.some((account) => account.balances.length >= 2)
 
-  const sourceBalance = balanceOptions.find((option) => option.balanceUuid === sourceBalanceUuid)
+  const sourceBalance = balanceOptions.find((option) => option.balanceUuid === accountBalanceUuid)
   const transferTargetOptions = balanceOptions.filter((option) => option.accountUuid !== sourceBalance?.accountUuid)
-  const exchangeTargetOptions = balanceOptions.filter(
-    (option) => option.accountUuid === sourceBalance?.accountUuid && option.balanceUuid !== sourceBalanceUuid,
-  )
 
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
   const categoryOptions = useMemo(
@@ -158,6 +399,70 @@ export function TransactionFormModal({
       isTransfer ? (categoriesQuery.data ?? []) : (categoriesQuery.data ?? []).filter((c) => c.type === selectedType),
     [categoriesQuery.data, selectedType, isTransfer],
   )
+
+  const accountPickerOptions = useMemo<PickerOption[]>(
+    () =>
+      balanceOptions.map((option) => ({
+        value: option.balanceUuid,
+        label: option.accountName,
+        sublabel: `${accountTypeLabels[option.accountType]} · ${option.currency}`,
+        leading: <BankLogo name={option.bankName} size={22} />,
+      })),
+    [balanceOptions],
+  )
+
+  const originOptions = useMemo<PickerOption[]>(
+    () => [
+      ...accountPickerOptions,
+      ...creditCards.map((card) => ({
+        value: `card:${card.uuid}`,
+        label: card.name,
+        sublabel: 'Cartão de crédito',
+        leading: <BankLogo name={card.issuer} size={22} />,
+      })),
+    ],
+    [accountPickerOptions, creditCards],
+  )
+
+  const transferTargetPickerOptions = useMemo<PickerOption[]>(
+    () => accountPickerOptions.filter((option) => transferTargetOptions.some((o) => o.balanceUuid === option.value)),
+    [accountPickerOptions, transferTargetOptions],
+  )
+
+  const categoryPickerOptions = useMemo<PickerOption[]>(
+    () =>
+      categoryOptions.map((category) => ({
+        value: category.uuid,
+        label: category.name,
+        leading: <CategoryIconBadge name={category.name} type={category.type} size="sm" />,
+      })),
+    [categoryOptions],
+  )
+
+  const originValue = destination === 'account' ? accountBalanceUuid : creditCardUuid ? `card:${creditCardUuid}` : undefined
+
+  function handleOriginChange(newValue: string) {
+    if (newValue.startsWith('card:')) {
+      setValue('destination', 'creditCard', { shouldValidate: true })
+      setValue('creditCardUuid', newValue.slice('card:'.length), { shouldValidate: true })
+      setValue('accountBalanceUuid', undefined, { shouldValidate: true })
+    } else {
+      setValue('destination', 'account', { shouldValidate: true })
+      setValue('accountBalanceUuid', newValue, { shouldValidate: true })
+      setValue('creditCardUuid', undefined, { shouldValidate: true })
+    }
+  }
+
+  const baseDate = dateValue ? parseISO(dateValue) : new Date()
+  const nextRecurrenceDate =
+    recurrenceFrequency === 'Semanal'
+      ? addWeeks(baseDate, 1)
+      : recurrenceFrequency === 'Anual'
+        ? addYears(baseDate, 1)
+        : addMonths(baseDate, 1)
+  const totalAmount = Number(amountValue) || 0
+  const baseInstallmentAmount = Math.floor((totalAmount / installments) * 100) / 100
+  const lastInstallmentAmount = Math.round((totalAmount - baseInstallmentAmount * (installments - 1)) * 100) / 100
 
   const submit = async (values: FormValues) => {
     setSubmitError(null)
@@ -168,22 +473,17 @@ export function TransactionFormModal({
         type: values.type,
         date: values.date,
         time: values.time ? `${values.time}:00` : null,
-        categoryUuid: values.type === 'EXCHANGE' ? null : (values.categoryUuid ?? null),
+        categoryUuid: values.categoryUuid ?? null,
         fromAccountBalanceUuid:
-          values.type === 'TRANSFER' || values.type === 'EXCHANGE'
+          values.type === 'TRANSFER'
             ? values.accountBalanceUuid
             : values.destination === 'account'
               ? values.accountBalanceUuid
               : null,
         fromCreditCardUuid:
-          values.type === 'TRANSFER' || values.type === 'EXCHANGE'
-            ? null
-            : values.destination === 'creditCard'
-              ? values.creditCardUuid
-              : null,
-        toAccountBalanceUuid:
-          values.type === 'TRANSFER' || values.type === 'EXCHANGE' ? values.toAccountBalanceUuid : null,
-        convertedAmount: values.type === 'EXCHANGE' ? values.convertedAmount : null,
+          values.type === 'TRANSFER' ? null : values.destination === 'creditCard' ? values.creditCardUuid : null,
+        toAccountBalanceUuid: values.type === 'TRANSFER' ? values.toAccountBalanceUuid : null,
+        convertedAmount: null,
       })
       onClose()
     } catch (error) {
@@ -192,146 +492,268 @@ export function TransactionFormModal({
   }
 
   return (
-    <Modal title={transaction ? 'Editar transação' : 'Nova transação'} onClose={onClose}>
+    <Modal title={transaction ? 'Editar transação' : 'Nova transação'} onClose={onClose} maxWidthClassName="max-w-lg">
+      <p className="-mt-3 mb-4 text-[12.5px] text-ink/55">
+        {transaction
+          ? 'Atualize os dados e a regra de repetição.'
+          : showRecurrence
+            ? 'Preencha os dados e defina se o lançamento se repete.'
+            : 'A repetição permanece oculta até ativar Recorrente.'}
+      </p>
+
       <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
-        <SegmentedControl
-          name="type"
-          value={selectedType}
-          onChange={(value) => setValue('type', value, { shouldValidate: true })}
-          options={[
-            { value: 'EXPENSE', label: flowTypeLabels.EXPENSE },
-            { value: 'INCOME', label: flowTypeLabels.INCOME },
-            { value: 'TRANSFER', label: flowTypeLabels.TRANSFER },
-            { value: 'EXCHANGE', label: flowTypeLabels.EXCHANGE },
-          ]}
-        />
+        <div className="flex rounded-full bg-black/[.06] p-1">
+          {TYPE_OPTIONS.map((option) => {
+            const checked = option.value === selectedType
+            return (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => setValue('type', option.value, { shouldValidate: true })}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                  checked ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+                }`}
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${option.dot}`} />
+                {option.label}
+              </button>
+            )
+          })}
+        </div>
 
         <Field label="Descrição" htmlFor="description" error={errors.description?.message}>
           <input id="description" className={inputClass} placeholder="Mercado do mês" {...register('description')} />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Valor" htmlFor="amount" error={errors.amount?.message}>
-            <input id="amount" type="number" step="0.01" className={inputClass} {...register('amount')} />
-          </Field>
-          <Field label="Data" htmlFor="date" error={errors.date?.message}>
-            <input id="date" type="date" className={inputClass} {...register('date')} />
-          </Field>
+        <div className="flex gap-3">
+          <div className="min-w-0 flex-1">
+            <Field label="Valor" htmlFor="amount" error={errors.amount?.message}>
+              <input id="amount" type="number" step="0.01" className={`${inputClass} w-full`} {...register('amount')} />
+            </Field>
+          </div>
+          <div className="min-w-0 flex-1">
+            <Field label="Data" htmlFor="date" error={errors.date?.message}>
+              <input id="date" type="date" className={`${inputClass} w-full`} {...register('date')} />
+            </Field>
+          </div>
+          <TimeField
+            label="Hora"
+            hint="(opcional)"
+            value={timeValue}
+            onChange={(value) => setValue('time', value, { shouldValidate: true })}
+            error={errors.time?.message}
+          />
         </div>
 
-        <Field label="Hora (opcional)" htmlFor="time" error={errors.time?.message}>
-          <input id="time" type="time" className={inputClass} {...register('time')} />
-        </Field>
-
-        {!isExchange && (
-          <Field label="Categoria" htmlFor="categoryUuid" error={errors.categoryUuid?.message}>
-            <select id="categoryUuid" className={inputClass} {...register('categoryUuid')}>
-              <option value="">Selecione...</option>
-              {categoryOptions.map((category) => (
-                <option key={category.uuid} value={category.uuid}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </Field>
+        {isTransfer ? (
+          <div className="flex gap-3">
+            <PickerField
+              label="Conta de origem"
+              placeholder="Selecione..."
+              options={accountPickerOptions}
+              value={accountBalanceUuid}
+              onChange={(value) => setValue('accountBalanceUuid', value, { shouldValidate: true })}
+              error={errors.accountBalanceUuid?.message}
+            />
+            <PickerField
+              label="Conta de destino"
+              placeholder="Selecione..."
+              options={transferTargetPickerOptions}
+              value={toAccountBalanceUuid}
+              onChange={(value) => setValue('toAccountBalanceUuid', value, { shouldValidate: true })}
+              error={errors.toAccountBalanceUuid?.message}
+            />
+          </div>
+        ) : (
+          <div className="flex gap-3">
+            <PickerField
+              label="Conta ou cartão"
+              placeholder="Selecione..."
+              options={originOptions}
+              value={originValue}
+              onChange={handleOriginChange}
+              error={errors.accountBalanceUuid?.message}
+            />
+            <PickerField
+              label="Categoria"
+              placeholder="Selecione..."
+              options={categoryPickerOptions}
+              value={categoryUuid}
+              onChange={(value) => setValue('categoryUuid', value, { shouldValidate: true })}
+              error={errors.categoryUuid?.message}
+            />
+          </div>
         )}
 
         {isTransfer && (
           <>
-            <Field label="Conta de origem" htmlFor="accountBalanceUuid" error={errors.accountBalanceUuid?.message}>
-              <select id="accountBalanceUuid" className={inputClass} {...register('accountBalanceUuid')}>
-                <option value="">Selecione...</option>
-                {balanceOptions.map((option) => (
-                  <option key={option.balanceUuid} value={option.balanceUuid}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Conta de destino" htmlFor="toAccountBalanceUuid" error={errors.toAccountBalanceUuid?.message}>
-              <select id="toAccountBalanceUuid" className={inputClass} {...register('toAccountBalanceUuid')}>
-                <option value="">Selecione...</option>
-                {transferTargetOptions.map((option) => (
-                  <option key={option.balanceUuid} value={option.balanceUuid}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
+            <PickerField
+              label="Categoria"
+              placeholder="Selecione..."
+              options={categoryPickerOptions}
+              value={categoryUuid}
+              onChange={(value) => setValue('categoryUuid', value, { shouldValidate: true })}
+              error={errors.categoryUuid?.message}
+            />
             {notEnoughAccountsForTransfer && (
               <WarningBanner>Você precisa de pelo menos duas contas bancárias para transferir.</WarningBanner>
             )}
           </>
         )}
 
-        {isExchange && (
-          <>
-            <Field label="Saldo de origem" htmlFor="accountBalanceUuid" error={errors.accountBalanceUuid?.message}>
-              <select id="accountBalanceUuid" className={inputClass} {...register('accountBalanceUuid')}>
-                <option value="">Selecione...</option>
-                {balanceOptions.map((option) => (
-                  <option key={option.balanceUuid} value={option.balanceUuid}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Saldo de destino" htmlFor="toAccountBalanceUuid" error={errors.toAccountBalanceUuid?.message}>
-              <select id="toAccountBalanceUuid" className={inputClass} {...register('toAccountBalanceUuid')}>
-                <option value="">Selecione...</option>
-                {exchangeTargetOptions.map((option) => (
-                  <option key={option.balanceUuid} value={option.balanceUuid}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </Field>
-            <Field label="Valor convertido (moeda de destino)" htmlFor="convertedAmount" error={errors.convertedAmount?.message}>
-              <input id="convertedAmount" type="number" step="0.01" className={inputClass} {...register('convertedAmount')} />
-            </Field>
-            {notEnoughBalancesForExchange && (
-              <WarningBanner>
-                Você precisa de uma conta com pelo menos duas moedas para fazer um câmbio interno.
-              </WarningBanner>
+        <div className="h-px bg-divider" />
+
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setShowRecurrence((v) => !v)}
+            className="flex flex-1 flex-col items-center gap-1.5"
+          >
+            <span
+              className={`flex h-9 w-9 items-center justify-center rounded-full ${showRecurrence ? 'bg-brand-100 text-brand-600' : 'bg-surface text-ink/60'}`}
+            >
+              <Repeat2 size={16} />
+            </span>
+            <span className={`text-[11px] font-semibold ${showRecurrence ? 'text-brand-600' : 'text-ink/60'}`}>
+              Recorrente
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowNote((v) => !v)}
+            className="flex flex-1 flex-col items-center gap-1.5"
+          >
+            <span
+              className={`flex h-9 w-9 items-center justify-center rounded-full ${showNote ? 'bg-brand-100 text-brand-600' : 'bg-surface text-ink/60'}`}
+            >
+              <MessageSquareText size={16} />
+            </span>
+            <span className={`text-[11px] font-semibold ${showNote ? 'text-brand-600' : 'text-ink/60'}`}>
+              Observação
+            </span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAttachmentsHint((v) => !v)}
+            className="flex flex-1 flex-col items-center gap-1.5"
+          >
+            <span
+              className={`flex h-9 w-9 items-center justify-center rounded-full ${showAttachmentsHint ? 'bg-brand-100 text-brand-600' : 'bg-surface text-ink/60'}`}
+            >
+              <Paperclip size={16} />
+            </span>
+            <span className={`text-[11px] font-semibold ${showAttachmentsHint ? 'text-brand-600' : 'text-ink/60'}`}>
+              Anexos
+            </span>
+          </button>
+        </div>
+
+        {showRecurrence && (
+          <div className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
+            <p className="text-[11px] text-ink/50">Recorrência e parcelamento ainda não são salvos — em breve.</p>
+
+            <div className="flex rounded-full bg-black/[.06] p-1">
+              {(
+                [
+                  { value: 'installment', label: 'Parcelamento' },
+                  { value: 'recurring', label: 'Recorrência' },
+                ] as const
+              ).map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => setRepeatMode(option.value)}
+                  className={`flex flex-1 items-center justify-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
+                    repeatMode === option.value ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+
+            {repeatMode === 'installment' ? (
+              <div className="flex items-end gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-semibold text-ink/60">Parcelas</span>
+                  <div className="flex h-9 items-center gap-2.5 rounded-xl bg-white px-2.5">
+                    <button
+                      type="button"
+                      onClick={() => setInstallments((n) => Math.max(2, n - 1))}
+                      className="text-sm font-semibold text-ink/60"
+                    >
+                      −
+                    </button>
+                    <span className="w-5 text-center text-sm font-semibold text-ink">{installments}</span>
+                    <button
+                      type="button"
+                      onClick={() => setInstallments((n) => Math.min(24, n + 1))}
+                      className="text-sm font-semibold text-brand-500"
+                    >
+                      +
+                    </button>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-semibold text-ink/60">Intervalo</span>
+                  <select
+                    value={installmentInterval}
+                    onChange={(event) => setInstallmentInterval(event.target.value as 'Semanas' | 'Meses')}
+                    className="h-9 rounded-xl bg-white px-2.5 text-sm text-ink outline-none"
+                  >
+                    <option value="Meses">Meses</option>
+                    <option value="Semanas">Semanas</option>
+                  </select>
+                </div>
+                <div className="flex-1 rounded-xl bg-brand-100 px-3 py-2">
+                  <p className="font-data text-[13px] font-semibold text-brand-700">
+                    {formatCurrency(baseInstallmentAmount)} por parcela
+                  </p>
+                  <p className="text-[11px] text-brand-700/70">Última: {formatCurrency(lastInstallmentAmount)}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-end gap-3">
+                <div className="flex flex-col gap-1.5">
+                  <span className="text-[11px] font-semibold text-ink/60">Frequência</span>
+                  <select
+                    value={recurrenceFrequency}
+                    onChange={(event) => setRecurrenceFrequency(event.target.value as 'Semanal' | 'Mensal' | 'Anual')}
+                    className="h-9 rounded-xl bg-white px-2.5 text-sm text-ink outline-none"
+                  >
+                    <option value="Semanal">Semanal</option>
+                    <option value="Mensal">Mensal</option>
+                    <option value="Anual">Anual</option>
+                  </select>
+                </div>
+                <div className="flex-1 rounded-xl bg-brand-100 px-3 py-2">
+                  <p className="text-[13px] font-semibold text-brand-700">
+                    Próximo: {formatDayMonthYearPtBR(nextRecurrenceDate)}
+                  </p>
+                  <p className="text-[11px] text-brand-700/70">Vale para os próximos lançamentos</p>
+                </div>
+              </div>
             )}
-          </>
+          </div>
         )}
 
-        {!isTransfer && !isExchange && (
-          <Field label="Conta ou cartão" htmlFor="accountBalanceUuid">
-            <SegmentedControl
-              name="destination"
-              value={destination}
-              onChange={(value) => setValue('destination', value, { shouldValidate: true })}
-              options={[
-                { value: 'account', label: 'Conta' },
-                { value: 'creditCard', label: 'Cartão' },
-              ]}
-              className="mb-2"
+        {showNote && (
+          <Field label="Observação (ainda não salva)" htmlFor="note">
+            <textarea
+              id="note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              rows={2}
+              placeholder="Adicione uma observação..."
+              className="rounded-2xl bg-surface p-3 text-sm text-ink outline-none focus:ring-2 focus:ring-brand-500"
             />
-            {destination === 'account' ? (
-              <select id="accountBalanceUuid" className={inputClass} {...register('accountBalanceUuid')}>
-                <option value="">Selecione...</option>
-                {balanceOptions.map((option) => (
-                  <option key={option.balanceUuid} value={option.balanceUuid}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <select id="creditCardUuid" className={inputClass} {...register('creditCardUuid')}>
-                <option value="">Selecione...</option>
-                {creditCards.map((card) => (
-                  <option key={card.uuid} value={card.uuid}>
-                    {card.name}
-                  </option>
-                ))}
-              </select>
-            )}
-            {errors.accountBalanceUuid?.message && (
-              <span className="text-xs text-expense">{errors.accountBalanceUuid.message}</span>
-            )}
           </Field>
+        )}
+
+        {showAttachmentsHint && (
+          <p className="rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-ink/60">
+            Anexos ficam disponíveis depois de salvar a transação, na tela de detalhes.
+          </p>
         )}
 
         {Boolean(submitError) && <ErrorBanner error={submitError} />}
@@ -340,11 +762,7 @@ export function TransactionFormModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancelar
           </Button>
-          <Button
-            type="submit"
-            isLoading={isSubmitting}
-            disabled={notEnoughAccountsForTransfer || notEnoughBalancesForExchange}
-          >
+          <Button type="submit" isLoading={isSubmitting} disabled={notEnoughAccountsForTransfer}>
             Salvar
           </Button>
         </div>

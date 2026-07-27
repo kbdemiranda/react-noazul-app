@@ -124,7 +124,13 @@ export function TransactionDetailPage() {
         {deleteMutation.isError && <ErrorBanner error={deleteMutation.error} />}
 
         <div className="flex gap-2">
-          <Button variant="secondary" className="flex-1" onClick={() => setIsEditing(true)}>
+          <Button
+            variant="secondary"
+            className="flex-1"
+            disabled={transaction.type === 'EXCHANGE'}
+            title={transaction.type === 'EXCHANGE' ? 'Edição de câmbio indisponível nesta versão' : undefined}
+            onClick={() => setIsEditing(true)}
+          >
             Editar
           </Button>
           <Button

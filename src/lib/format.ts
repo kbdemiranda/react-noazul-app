@@ -49,3 +49,7 @@ export function formatMonthYearPtBR(date: Date): string {
 export function formatShortDatePtBR(date: Date): string {
   return format(date, 'dd/MM')
 }
+
+export function formatDayMonthYearPtBR(date: Date): string {
+  return format(date, 'd MMM yyyy', { locale: ptBR })
+}
