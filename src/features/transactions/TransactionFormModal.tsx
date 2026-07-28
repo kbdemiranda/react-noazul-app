@@ -160,11 +160,25 @@ export function TransactionFormModal({
   const dateValue = watch('date')
   const timeValue = watch('time')
   const isTransfer = selectedType === 'TRANSFER'
-  const notEnoughAccountsForTransfer =
-    isTransfer && new Set(balanceOptions.map((option) => option.accountUuid)).size < 2
+  // A transfer only makes sense between two different accounts that share a
+  // currency (crossing currencies is an EXCHANGE, not a TRANSFER — enforced
+  // by the backend's CurrencyMismatchException). Having 2+ accounts isn't
+  // enough on its own if none of them share a currency with another.
+  const hasTransferablePair = useMemo(() => {
+    const accountsByCurrency = new Map<Currency, Set<string>>()
+    for (const option of balanceOptions) {
+      const accountUuids = accountsByCurrency.get(option.currency) ?? new Set<string>()
+      accountUuids.add(option.accountUuid)
+      accountsByCurrency.set(option.currency, accountUuids)
+    }
+    return [...accountsByCurrency.values()].some((accountUuids) => accountUuids.size >= 2)
+  }, [balanceOptions])
+  const notEnoughAccountsForTransfer = isTransfer && !hasTransferablePair
 
   const sourceBalance = balanceOptions.find((option) => option.balanceUuid === accountBalanceUuid)
-  const transferTargetOptions = balanceOptions.filter((option) => option.accountUuid !== sourceBalance?.accountUuid)
+  const transferTargetOptions = balanceOptions.filter(
+    (option) => option.accountUuid !== sourceBalance?.accountUuid && option.currency === sourceBalance?.currency,
+  )
   // Which currency the "Valor" mask should follow — the credit card's own
   // currency when paying with a card, otherwise the selected account
   // balance's currency (the same lookup covers a TRANSFER's origin, since it
@@ -247,6 +261,14 @@ export function TransactionFormModal({
 
   const submit = async (values: FormValues) => {
     setSubmitError(null)
+    if (values.type === 'TRANSFER') {
+      const from = balanceOptions.find((option) => option.balanceUuid === values.accountBalanceUuid)
+      const to = balanceOptions.find((option) => option.balanceUuid === values.toAccountBalanceUuid)
+      if (from && to && from.currency !== to.currency) {
+        setSubmitError(new Error('Origem e destino precisam ter a mesma moeda.'))
+        return
+      }
+    }
     try {
       await onSubmit({
         description: values.description,
@@ -339,12 +361,19 @@ export function TransactionFormModal({
               placeholder="Selecione..."
               options={accountPickerOptions}
               value={accountBalanceUuid}
-              onChange={(value) => setValue('accountBalanceUuid', value, { shouldValidate: true })}
+              onChange={(value) => {
+                setValue('accountBalanceUuid', value, { shouldValidate: true })
+                const newCurrency = balanceOptions.find((option) => option.balanceUuid === value)?.currency
+                const currentTarget = balanceOptions.find((option) => option.balanceUuid === toAccountBalanceUuid)
+                if (currentTarget && currentTarget.currency !== newCurrency) {
+                  setValue('toAccountBalanceUuid', undefined, { shouldValidate: true })
+                }
+              }}
               error={errors.accountBalanceUuid?.message}
             />
             <PickerField
               label="Conta de destino"
-              placeholder="Selecione..."
+              placeholder={sourceBalance ? 'Selecione...' : 'Escolha a origem primeiro'}
               options={transferTargetPickerOptions}
               value={toAccountBalanceUuid}
               onChange={(value) => setValue('toAccountBalanceUuid', value, { shouldValidate: true })}
@@ -383,7 +412,9 @@ export function TransactionFormModal({
               error={errors.categoryUuid?.message}
             />
             {notEnoughAccountsForTransfer && (
-              <WarningBanner>Você precisa de pelo menos duas contas bancárias para transferir.</WarningBanner>
+              <WarningBanner>
+                Você precisa de pelo menos duas contas com a mesma moeda para transferir.
+              </WarningBanner>
             )}
           </>
         )}
