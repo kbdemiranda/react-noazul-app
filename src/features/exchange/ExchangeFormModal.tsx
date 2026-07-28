@@ -1,8 +1,18 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { ArrowLeftRight, Calculator, FileText, MessageSquare, RefreshCw, Repeat2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import {
+  AlertTriangle,
+  ArrowLeftRight,
+  Calculator,
+  FileText,
+  Loader2,
+  MessageSquare,
+  RefreshCw,
+  Repeat2,
+} from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { exchangeRatesApi } from '../../api/exchangeRates'
 import type { TransactionPayload } from '../../api/transactions'
 import { Button } from '../../components/Button'
 import { CurrencyInput } from '../../components/CurrencyInput'
@@ -94,6 +104,13 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
   const [showDescription, setShowDescription] = useState(true)
   const [showNote, setShowNote] = useState(false)
   const [note, setNote] = useState('')
+  // Tracks the auto-quote fetched on blur of "Valor de origem" — independent
+  // from form validation, since a failed quote shouldn't block the user from
+  // typing the converted amount by hand.
+  const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'error'>('idle')
+  // Guards against a slow quote response landing after a newer one started
+  // (e.g. the user blurs twice in a row, or edits currencies mid-flight).
+  const quoteRequestId = useRef(0)
 
   const {
     register,
@@ -155,6 +172,38 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
     setValue('accountUuid', newAccountUuid, { shouldValidate: true })
     setValue('fromAccountBalanceUuid', undefined, { shouldValidate: true })
     setValue('toAccountBalanceUuid', undefined, { shouldValidate: true })
+    setQuoteStatus('idle')
+  }
+
+  // Auto-fills "Valor convertido" with a live quote once the user leaves
+  // "Valor de origem" — but that's just a starting point, since the real
+  // rate at settlement time may differ from the rate at entry time. The
+  // field stays a normal, freely editable input afterwards.
+  async function handleOriginAmountBlur() {
+    if (!fromBalance || !toBalance) return
+    const amount = typeof amountValue === 'number' ? amountValue : 0
+    if (amount <= 0) return
+
+    const requestId = ++quoteRequestId.current
+    setQuoteStatus('loading')
+    try {
+      const [fromQuote, toQuote] = await Promise.all([
+        exchangeRatesApi.getLatestBrlRate(fromBalance.currency),
+        exchangeRatesApi.getLatestBrlRate(toBalance.currency),
+      ])
+      if (requestId !== quoteRequestId.current) return // superseded by a newer blur/edit
+
+      if (!fromQuote || !toQuote) {
+        setQuoteStatus('error')
+        return
+      }
+
+      const converted = Math.round(((amount * fromQuote.rateToBrl) / toQuote.rateToBrl) * 100) / 100
+      setValue('convertedAmount', converted, { shouldValidate: true })
+      setQuoteStatus('idle')
+    } catch {
+      if (requestId === quoteRequestId.current) setQuoteStatus('error')
+    }
   }
 
   const submit = async (values: FormValues) => {
@@ -196,7 +245,10 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
             placeholder="Selecione..."
             options={fromOptions}
             value={fromAccountBalanceUuid}
-            onChange={(value) => setValue('fromAccountBalanceUuid', value, { shouldValidate: true })}
+            onChange={(value) => {
+              setValue('fromAccountBalanceUuid', value, { shouldValidate: true })
+              setQuoteStatus('idle')
+            }}
             error={errors.fromAccountBalanceUuid?.message}
           />
           <PickerField
@@ -204,7 +256,10 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
             placeholder="Selecione..."
             options={toOptions}
             value={toAccountBalanceUuid}
-            onChange={(value) => setValue('toAccountBalanceUuid', value, { shouldValidate: true })}
+            onChange={(value) => {
+              setValue('toAccountBalanceUuid', value, { shouldValidate: true })
+              setQuoteStatus('idle')
+            }}
             error={errors.toAccountBalanceUuid?.message}
           />
         </div>
@@ -217,6 +272,7 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
                 currency={fromBalance?.currency ?? 'BRL'}
                 value={typeof amountValue === 'number' ? amountValue : 0}
                 onChange={(value) => setValue('amount', value, { shouldValidate: true })}
+                onBlur={handleOriginAmountBlur}
                 className={`${inputClass} w-full`}
               />
             </Field>
@@ -228,17 +284,34 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
                   id="convertedAmount"
                   currency={toBalance?.currency ?? 'BRL'}
                   value={typeof convertedAmountValue === 'number' ? convertedAmountValue : 0}
-                  onChange={(value) => setValue('convertedAmount', value, { shouldValidate: true })}
+                  onChange={(value) => {
+                    setValue('convertedAmount', value, { shouldValidate: true })
+                    setQuoteStatus('idle')
+                  }}
                   className={`${inputClass} w-full bg-brand-100 pr-9 text-brand-700`}
                 />
-                <Calculator
-                  size={15}
-                  className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-brand-500"
-                />
+                {quoteStatus === 'loading' ? (
+                  <Loader2
+                    size={15}
+                    className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 animate-spin text-brand-500"
+                  />
+                ) : (
+                  <Calculator
+                    size={15}
+                    className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-brand-500"
+                  />
+                )}
               </div>
             </Field>
           </div>
         </div>
+
+        {quoteStatus === 'error' && (
+          <div className="flex items-center gap-2 rounded-2xl bg-alert-vivid/12 px-3.5 py-2 text-xs text-alert">
+            <AlertTriangle size={13} className="flex-none" />
+            <span>Não foi possível buscar uma cotação agora. Informe o valor convertido manualmente.</span>
+          </div>
+        )}
 
         {impliedRate !== null && fromBalance && toBalance && (
           <div className="flex items-center gap-2 rounded-2xl bg-brand-100/50 px-3.5 py-2 text-xs text-brand-700">
