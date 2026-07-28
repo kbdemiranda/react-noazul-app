@@ -1,7 +1,9 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftRight } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts'
+import { transactionsApi, type TransactionPayload } from '../../api/transactions'
 import { Badge } from '../../components/Badge'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
@@ -9,9 +11,20 @@ import { ErrorBanner } from '../../components/ErrorBanner'
 import { BankLogo } from '../../lib/bankLogos'
 import { currencyLabels } from '../../lib/labels'
 import { formatCurrency } from '../../lib/format'
+import { ExchangeFormModal } from './ExchangeFormModal'
 
 export function ExchangePage() {
+  const queryClient = useQueryClient()
+  const [isCreating, setIsCreating] = useState(false)
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
+
+  const createMutation = useMutation({
+    mutationFn: (payload: TransactionPayload) => transactionsApi.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+    },
+  })
 
   // Câmbio only makes sense within an account that holds more than one
   // currency (Wise, Revolut, ...) — a single-currency account has nothing to
@@ -22,7 +35,20 @@ export function ExchangePage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ink">Câmbio</h1>
+        {multiCurrencyAccounts.length > 0 && (
+          <Button onClick={() => setIsCreating(true)}>Novo câmbio</Button>
+        )}
       </div>
+
+      {isCreating && (
+        <ExchangeFormModal
+          accounts={multiCurrencyAccounts}
+          onClose={() => setIsCreating(false)}
+          onSubmit={async (payload) => {
+            await createMutation.mutateAsync(payload)
+          }}
+        />
+      )}
 
       {accountsQuery.isError && <ErrorBanner error={accountsQuery.error} />}
 
