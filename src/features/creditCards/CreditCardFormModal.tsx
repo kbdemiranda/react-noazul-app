@@ -4,6 +4,7 @@ import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import type { CreditCardPayload } from '../../api/creditCards'
 import { Button } from '../../components/Button'
+import { CurrencyInput } from '../../components/CurrencyInput'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
@@ -52,6 +53,7 @@ export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormM
   })
 
   const selectedCurrency = watch('currency')
+  const creditLimit = watch('creditLimit')
 
   const submit = async (values: FormValues) => {
     setSubmitError(null)
@@ -82,7 +84,13 @@ export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormM
           />
         </Field>
         <Field label="Limite" htmlFor="creditLimit" error={errors.creditLimit?.message}>
-          <input id="creditLimit" type="number" step="0.01" className={inputClass} {...register('creditLimit')} />
+          <CurrencyInput
+            id="creditLimit"
+            currency={selectedCurrency}
+            value={typeof creditLimit === 'number' ? creditLimit : 0}
+            onChange={(value) => setValue('creditLimit', value, { shouldValidate: true })}
+            className={inputClass}
+          />
         </Field>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Dia de fechamento" htmlFor="closingDay" error={errors.closingDay?.message}>

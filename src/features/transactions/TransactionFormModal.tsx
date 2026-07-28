@@ -9,6 +9,7 @@ import type { Account, AccountType, CreditCard, Currency, Transaction } from '..
 import { categoriesApi } from '../../api/categories'
 import type { TransactionPayload } from '../../api/transactions'
 import { Button } from '../../components/Button'
+import { CurrencyInput } from '../../components/CurrencyInput'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
@@ -164,6 +165,14 @@ export function TransactionFormModal({
 
   const sourceBalance = balanceOptions.find((option) => option.balanceUuid === accountBalanceUuid)
   const transferTargetOptions = balanceOptions.filter((option) => option.accountUuid !== sourceBalance?.accountUuid)
+  // Which currency the "Valor" mask should follow — the credit card's own
+  // currency when paying with a card, otherwise the selected account
+  // balance's currency (the same lookup covers a TRANSFER's origin, since it
+  // reuses the accountBalanceUuid field).
+  const amountCurrency: Currency =
+    destination === 'creditCard' && !isTransfer
+      ? (creditCards.find((card) => card.uuid === creditCardUuid)?.currency ?? 'BRL')
+      : (sourceBalance?.currency ?? 'BRL')
 
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
   const categoryOptions = useMemo(
@@ -300,7 +309,13 @@ export function TransactionFormModal({
         <div className="flex gap-3">
           <div className="min-w-0 flex-1">
             <Field label="Valor" htmlFor="amount" error={errors.amount?.message}>
-              <input id="amount" type="number" step="0.01" className={`${inputClass} w-full`} {...register('amount')} />
+              <CurrencyInput
+                id="amount"
+                currency={amountCurrency}
+                value={typeof amountValue === 'number' ? amountValue : 0}
+                onChange={(value) => setValue('amount', value, { shouldValidate: true })}
+                className={`${inputClass} w-full`}
+              />
             </Field>
           </div>
           <div className="min-w-0 flex-1">

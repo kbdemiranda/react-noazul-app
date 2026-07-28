@@ -7,6 +7,7 @@ import { accountsApi } from '../../api/accounts'
 import { creditCardsApi } from '../../api/creditCards'
 import { AuthSplitLayout } from '../../components/AuthSplitLayout'
 import { Button } from '../../components/Button'
+import { CurrencyInput } from '../../components/CurrencyInput'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { SegmentedControl } from '../../components/SegmentedControl'
@@ -51,6 +52,8 @@ export function OnboardingPage() {
   })
 
   const accountType = accountForm.watch('type')
+  const balanceValue = accountForm.watch('balance')
+  const creditLimitValue = cardForm.watch('creditLimit')
 
   const submitAccount = accountForm.handleSubmit(async (values) => {
     setSubmitError(null)
@@ -129,7 +132,13 @@ export function OnboardingPage() {
             />
           </Field>
           <Field label="Saldo inicial" htmlFor="ob-balance" error={accountForm.formState.errors.balance?.message}>
-            <input id="ob-balance" type="number" step="0.01" className={inputClass} {...accountForm.register('balance')} />
+            <CurrencyInput
+              id="ob-balance"
+              currency="BRL"
+              value={typeof balanceValue === 'number' ? balanceValue : 0}
+              onChange={(value) => accountForm.setValue('balance', value, { shouldValidate: true })}
+              className={inputClass}
+            />
           </Field>
 
           <Button type="submit" isLoading={accountForm.formState.isSubmitting} className="mt-2 w-full">
@@ -155,7 +164,13 @@ export function OnboardingPage() {
             />
           </Field>
           <Field label="Limite" htmlFor="ob-limit" error={cardForm.formState.errors.creditLimit?.message}>
-            <input id="ob-limit" type="number" step="0.01" className={inputClass} {...cardForm.register('creditLimit')} />
+            <CurrencyInput
+              id="ob-limit"
+              currency="BRL"
+              value={typeof creditLimitValue === 'number' ? creditLimitValue : 0}
+              onChange={(value) => cardForm.setValue('creditLimit', value, { shouldValidate: true })}
+              className={inputClass}
+            />
           </Field>
           <div className="grid grid-cols-2 gap-4">
             <Field label="Dia de fechamento" htmlFor="ob-closing" error={cardForm.formState.errors.closingDay?.message}>
