@@ -26,7 +26,6 @@ interface CurrencyInputProps {
   currency: Currency
   value: number
   onChange: (value: number) => void
-  onBlur?: () => void
   className?: string
 }
 
@@ -36,7 +35,7 @@ interface CurrencyInputProps {
  * decimal/thousands separators match the selected currency
  * ({@link separatorsFor}).
  */
-export function CurrencyInput({ id, currency, value, onChange, onBlur, className = '' }: CurrencyInputProps) {
+export function CurrencyInput({ id, currency, value, onChange, className = '' }: CurrencyInputProps) {
   const cents = Math.round(value * 100)
 
   function handleChange(event: ChangeEvent<HTMLInputElement>) {
@@ -52,7 +51,6 @@ export function CurrencyInput({ id, currency, value, onChange, onBlur, className
       inputMode="decimal"
       value={formatCents(cents, currency)}
       onChange={handleChange}
-      onBlur={onBlur}
       className={className}
     />
   )

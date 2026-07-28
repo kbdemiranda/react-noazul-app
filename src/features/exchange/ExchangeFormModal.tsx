@@ -104,12 +104,13 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
   const [showDescription, setShowDescription] = useState(true)
   const [showNote, setShowNote] = useState(false)
   const [note, setNote] = useState('')
-  // Tracks the auto-quote fetched on blur of "Valor de origem" — independent
-  // from form validation, since a failed quote shouldn't block the user from
-  // typing the converted amount by hand.
+  // Tracks the quote fetched by the convert button — independent from form
+  // validation, since a failed quote shouldn't block the user from typing
+  // both amounts by hand.
   const [quoteStatus, setQuoteStatus] = useState<'idle' | 'loading' | 'error'>('idle')
   // Guards against a slow quote response landing after a newer one started
-  // (e.g. the user blurs twice in a row, or edits currencies mid-flight).
+  // (e.g. the user clicks convert twice in a row, or edits currencies
+  // mid-flight).
   const quoteRequestId = useRef(0)
 
   const {
@@ -175,14 +176,17 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
     setQuoteStatus('idle')
   }
 
-  // Auto-fills "Valor convertido" with a live quote once the user leaves
-  // "Valor de origem" — but that's just a starting point, since the real
-  // rate at settlement time may differ from the rate at entry time. The
-  // field stays a normal, freely editable input afterwards.
-  async function handleOriginAmountBlur() {
+  // Fills in whichever amount is missing using a live quote — but that's
+  // just a starting point, since the real rate at settlement time may differ
+  // from the rate at entry time, so both fields stay freely editable
+  // afterwards. If both are already filled, "Valor convertido" wins (it's
+  // the one more likely to match what actually landed on a bank statement),
+  // so origem gets recalculated from it.
+  async function handleConvertClick() {
     if (!fromBalance || !toBalance) return
-    const amount = typeof amountValue === 'number' ? amountValue : 0
-    if (amount <= 0) return
+
+    const useConvertedAsSource = convertedAmountNumber > 0
+    if (!useConvertedAsSource && amountNumber <= 0) return // nothing to convert
 
     const requestId = ++quoteRequestId.current
     setQuoteStatus('loading')
@@ -191,15 +195,20 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
         exchangeRatesApi.getLatestBrlRate(fromBalance.currency),
         exchangeRatesApi.getLatestBrlRate(toBalance.currency),
       ])
-      if (requestId !== quoteRequestId.current) return // superseded by a newer blur/edit
+      if (requestId !== quoteRequestId.current) return // superseded by a newer click/edit
 
       if (!fromQuote || !toQuote) {
         setQuoteStatus('error')
         return
       }
 
-      const converted = Math.round(((amount * fromQuote.rateToBrl) / toQuote.rateToBrl) * 100) / 100
-      setValue('convertedAmount', converted, { shouldValidate: true })
+      if (useConvertedAsSource) {
+        const origin = Math.round(((convertedAmountNumber * toQuote.rateToBrl) / fromQuote.rateToBrl) * 100) / 100
+        setValue('amount', origin, { shouldValidate: true })
+      } else {
+        const converted = Math.round(((amountNumber * fromQuote.rateToBrl) / toQuote.rateToBrl) * 100) / 100
+        setValue('convertedAmount', converted, { shouldValidate: true })
+      }
       setQuoteStatus('idle')
     } catch {
       if (requestId === quoteRequestId.current) setQuoteStatus('error')
@@ -264,7 +273,7 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
           />
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex items-end gap-3">
           <div className="min-w-0 flex-1">
             <Field label="Valor de origem" htmlFor="amount" error={errors.amount?.message}>
               <CurrencyInput
@@ -272,11 +281,26 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
                 currency={fromBalance?.currency ?? 'BRL'}
                 value={typeof amountValue === 'number' ? amountValue : 0}
                 onChange={(value) => setValue('amount', value, { shouldValidate: true })}
-                onBlur={handleOriginAmountBlur}
                 className={`${inputClass} w-full`}
               />
             </Field>
           </div>
+
+          <button
+            type="button"
+            onClick={handleConvertClick}
+            disabled={!fromBalance || !toBalance || (amountNumber <= 0 && convertedAmountNumber <= 0)}
+            aria-label="Converter usando a cotação atual"
+            title="Converter usando a cotação atual"
+            className="mb-2.5 flex h-9 w-9 flex-none items-center justify-center rounded-full bg-brand-100 text-brand-600 transition-colors hover:bg-brand-200 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {quoteStatus === 'loading' ? (
+              <Loader2 size={16} className="animate-spin" />
+            ) : (
+              <ArrowLeftRight size={16} />
+            )}
+          </button>
+
           <div className="min-w-0 flex-1">
             <Field label="Valor convertido" htmlFor="convertedAmount" error={errors.convertedAmount?.message}>
               <div className="relative">
@@ -290,17 +314,10 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
                   }}
                   className={`${inputClass} w-full bg-brand-100 pr-9 text-brand-700`}
                 />
-                {quoteStatus === 'loading' ? (
-                  <Loader2
-                    size={15}
-                    className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 animate-spin text-brand-500"
-                  />
-                ) : (
-                  <Calculator
-                    size={15}
-                    className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-brand-500"
-                  />
-                )}
+                <Calculator
+                  size={15}
+                  className="pointer-events-none absolute top-1/2 right-3.5 -translate-y-1/2 text-brand-500"
+                />
               </div>
             </Field>
           </div>
