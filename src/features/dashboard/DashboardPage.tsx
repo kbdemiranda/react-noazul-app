@@ -1,10 +1,10 @@
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff, Inbox, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts'
 import { creditCardsApi } from '../../api/creditCards'
-import { transactionsApi } from '../../api/transactions'
+import { transactionsApi, type TransactionPayload } from '../../api/transactions'
 import { Button } from '../../components/Button'
 import { Card, CardKicker } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
@@ -14,17 +14,28 @@ import { CategoryIconBadge } from '../../lib/categoryIcons'
 import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate, formatFullDatePtBR, formatMonthYearPtBR, formatShortDatePtBR } from '../../lib/format'
 import { useAuth } from '../../context/AuthContext'
+import { TransactionFormModal } from '../transactions/TransactionFormModal'
 
 const DONUT_COLORS = ['var(--color-brand-500)', 'var(--color-expense-vivid)', 'var(--color-alert-vivid)', '#bf5af2']
 
 export function DashboardPage() {
   const { user } = useAuth()
+  const queryClient = useQueryClient()
   const [hideSaldo, setHideSaldo] = useState(false)
   const [hideFaturas, setHideFaturas] = useState(false)
+  const [isCreating, setIsCreating] = useState(false)
 
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const creditCardsQuery = useQuery({ queryKey: ['credit-cards'], queryFn: creditCardsApi.list })
   const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: transactionsApi.list })
+
+  const createMutation = useMutation({
+    mutationFn: (payload: TransactionPayload) => transactionsApi.create(payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['accounts'] })
+    },
+  })
 
   const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data])
   const creditCards = useMemo(() => creditCardsQuery.data ?? [], [creditCardsQuery.data])
@@ -99,13 +110,22 @@ export function DashboardPage() {
           <h1 className="text-xl font-semibold text-ink sm:text-2xl">Olá, {firstName}</h1>
           <p className="mt-0.5 text-[13px] text-ink/60">{formatFullDatePtBR(today)}</p>
         </div>
-        <Link to="/transacoes">
-          <Button className="hidden sm:inline-flex" disabled={!canCreate}>
-            <Plus size={15} />
-            Nova transação
-          </Button>
-        </Link>
+        <Button className="hidden sm:inline-flex" disabled={!canCreate} onClick={() => setIsCreating(true)}>
+          <Plus size={15} />
+          Nova transação
+        </Button>
       </div>
+
+      {isCreating && (
+        <TransactionFormModal
+          accounts={accounts}
+          creditCards={creditCards}
+          onClose={() => setIsCreating(false)}
+          onSubmit={async (payload) => {
+            await createMutation.mutateAsync(payload)
+          }}
+        />
+      )}
 
       {isError && <ErrorBanner error={accountsQuery.error ?? creditCardsQuery.error ?? transactionsQuery.error} />}
 
