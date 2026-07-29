@@ -20,10 +20,20 @@ export interface TransactionPayload {
   convertedAmount?: number | null
 }
 
+export interface TransactionFilters {
+  description?: string
+  type?: FlowType
+  categoryUuid?: string
+  accountBalanceUuid?: string
+  creditCardUuid?: string
+  dateFrom?: string // yyyy-MM-dd
+  dateTo?: string // yyyy-MM-dd
+}
+
 export const transactionsApi = {
-  async list(): Promise<Transaction[]> {
-    if (USE_MOCKS) return mockTransactions.list()
-    const { data } = await apiClient.get<Transaction[]>('/transactions')
+  async list(filters?: TransactionFilters): Promise<Transaction[]> {
+    if (USE_MOCKS) return mockTransactions.list(filters)
+    const { data } = await apiClient.get<Transaction[]>('/transactions', { params: filters })
     return data
   },
   async find(uuid: string): Promise<Transaction> {

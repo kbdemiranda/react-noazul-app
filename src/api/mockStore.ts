@@ -2,7 +2,7 @@ import type { Account, AccountBalance, Attachment, AuthTokens, Category, CreditC
 import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload } from './accounts'
 import type { CreditCardPayload } from './creditCards'
 import type { CategoryPayload } from './categories'
-import type { TransactionPayload } from './transactions'
+import type { TransactionFilters, TransactionPayload } from './transactions'
 
 function uuid(): string {
   return crypto.randomUUID()
@@ -241,8 +241,19 @@ export const mockCategories = {
 }
 
 export const mockTransactions = {
-  async list(): Promise<Transaction[]> {
-    return delay(transactions.filter((t) => !archivedTransactionUuids.has(t.uuid)))
+  async list(filters?: TransactionFilters): Promise<Transaction[]> {
+    const description = filters?.description?.trim().toLowerCase()
+    const matching = transactions
+      .filter((t) => !archivedTransactionUuids.has(t.uuid))
+      .filter((t) => !description || t.description.toLowerCase().includes(description))
+      .filter((t) => !filters?.type || t.type === filters.type)
+      .filter((t) => !filters?.categoryUuid || t.categoryUuid === filters.categoryUuid)
+      .filter((t) => !filters?.accountBalanceUuid || t.fromAccountBalanceUuid === filters.accountBalanceUuid)
+      .filter((t) => !filters?.creditCardUuid || t.fromCreditCardUuid === filters.creditCardUuid)
+      .filter((t) => !filters?.dateFrom || t.date >= filters.dateFrom)
+      .filter((t) => !filters?.dateTo || t.date <= filters.dateTo)
+      .sort((a, b) => (a.date === b.date ? (a.time < b.time ? 1 : -1) : a.date < b.date ? 1 : -1))
+    return delay(matching)
   },
   async find(uuidStr: string): Promise<Transaction> {
     const found = transactions.find((t) => t.uuid === uuidStr)

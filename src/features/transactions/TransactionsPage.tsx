@@ -1,18 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Receipt } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Landmark, Layers, Plus, Receipt, Search, SlidersHorizontal, X } from 'lucide-react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts'
+import { categoriesApi } from '../../api/categories'
 import { creditCardsApi } from '../../api/creditCards'
-import { transactionsApi, type TransactionPayload } from '../../api/transactions'
+import { transactionsApi, type TransactionFilters, type TransactionPayload } from '../../api/transactions'
 import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
+import { Field, inputClass } from '../../components/Field'
+import { PickerField, type PickerOption } from '../../components/PickerField'
 import { SegmentedControl } from '../../components/SegmentedControl'
 import { WarningBanner } from '../../components/WarningBanner'
+import { BankLogo } from '../../lib/bankLogos'
 import { CategoryIconBadge, categoryColor } from '../../lib/categoryIcons'
 import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate } from '../../lib/format'
+import { accountTypeLabels } from '../../lib/labels'
 import { TransactionFormModal } from './TransactionFormModal'
 
 type Filter = 'ALL' | 'INCOME' | 'EXPENSE' | 'TRANSFER' | 'EXCHANGE'
@@ -25,31 +30,108 @@ const filterOptions: { value: Filter; label: string }[] = [
   { value: 'EXCHANGE', label: 'Câmbios' },
 ]
 
+const ALL_CATEGORIES = ''
+const ALL_ACCOUNTS = ''
+
 export function TransactionsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [isCreating, setIsCreating] = useState(false)
   const [filter, setFilter] = useState<Filter>('ALL')
 
-  const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: transactionsApi.list })
+  const [descriptionInput, setDescriptionInput] = useState('')
+  const [description, setDescription] = useState('')
+  const [categoryUuid, setCategoryUuid] = useState(ALL_CATEGORIES)
+  const [accountOrCardUuid, setAccountOrCardUuid] = useState(ALL_ACCOUNTS)
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
+  const [filtersOpen, setFiltersOpen] = useState(false)
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDescription(descriptionInput.trim()), 300)
+    return () => clearTimeout(timeout)
+  }, [descriptionInput])
+
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const creditCardsQuery = useQuery({ queryKey: ['credit-cards'], queryFn: creditCardsApi.list })
+  const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
+
+  const filters: TransactionFilters = useMemo(() => {
+    const [accountBalanceUuid, creditCardUuid] = accountOrCardUuid.startsWith('card:')
+      ? [undefined, accountOrCardUuid.slice('card:'.length)]
+      : [accountOrCardUuid || undefined, undefined]
+    return {
+      description: description || undefined,
+      type: filter === 'ALL' ? undefined : filter,
+      categoryUuid: categoryUuid || undefined,
+      accountBalanceUuid,
+      creditCardUuid,
+      dateFrom: dateFrom || undefined,
+      dateTo: dateTo || undefined,
+    }
+  }, [description, filter, categoryUuid, accountOrCardUuid, dateFrom, dateTo])
+
+  const transactionsQuery = useQuery({
+    queryKey: ['transactions', filters],
+    queryFn: () => transactionsApi.list(filters),
+  })
 
   const createMutation = useMutation({
     mutationFn: (payload: TransactionPayload) => transactionsApi.create(payload),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['transactions'] }),
   })
 
-  const filteredTransactions = useMemo(() => {
-    const data = transactionsQuery.data ?? []
-    if (filter === 'ALL') return data
-    return data.filter((t) => t.type === filter)
-  }, [transactionsQuery.data, filter])
-
-  const sorted = useMemo(
-    () => [...filteredTransactions].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0)),
-    [filteredTransactions],
+  const categoryOptions = useMemo<PickerOption[]>(
+    () => [
+      { value: ALL_CATEGORIES, label: 'Todas as categorias', leading: <Layers size={16} className="text-ink/45" /> },
+      ...(categoriesQuery.data ?? []).map((category) => ({
+        value: category.uuid,
+        label: category.name,
+        leading: <CategoryIconBadge name={category.name} type={category.type} size="sm" />,
+      })),
+    ],
+    [categoriesQuery.data],
   )
+
+  const accountOrCardOptions = useMemo<PickerOption[]>(
+    () => [
+      {
+        value: ALL_ACCOUNTS,
+        label: 'Todas as contas/cartões',
+        leading: <Landmark size={16} className="text-ink/45" />,
+      },
+      ...(accountsQuery.data ?? []).flatMap((account) =>
+        account.balances.map((balance) => ({
+          value: balance.uuid,
+          label: account.name,
+          sublabel: `${accountTypeLabels[account.type]} · ${balance.currency}`,
+          leading: <BankLogo name={account.bankName} size={22} />,
+        })),
+      ),
+      ...(creditCardsQuery.data ?? []).map((card) => ({
+        value: `card:${card.uuid}`,
+        label: card.name,
+        sublabel: 'Cartão de crédito',
+        leading: <BankLogo name={card.issuer} size={22} />,
+      })),
+    ],
+    [accountsQuery.data, creditCardsQuery.data],
+  )
+
+  const extraFiltersCount = [categoryUuid, accountOrCardUuid, dateFrom, dateTo].filter(Boolean).length
+  const hasActiveFilters = filter !== 'ALL' || description !== '' || extraFiltersCount > 0
+
+  function clearFilters() {
+    setFilter('ALL')
+    setDescriptionInput('')
+    setDescription('')
+    setCategoryUuid(ALL_CATEGORIES)
+    setAccountOrCardUuid(ALL_ACCOUNTS)
+    setDateFrom('')
+    setDateTo('')
+  }
+
+  const transactions = transactionsQuery.data ?? []
 
   const canCreate = (accountsQuery.data?.length ?? 0) > 0 || (creditCardsQuery.data?.length ?? 0) > 0
   const isReady = !accountsQuery.isLoading && !creditCardsQuery.isLoading
@@ -68,7 +150,86 @@ export function TransactionsPage() {
         <WarningBanner>Cadastre uma conta ou cartão antes de lançar uma transação.</WarningBanner>
       )}
 
-      <SegmentedControl name="filtro" options={filterOptions} value={filter} onChange={setFilter} className="w-fit" />
+      <div className="flex flex-wrap items-center gap-2">
+        <SegmentedControl name="filtro" options={filterOptions} value={filter} onChange={setFilter} className="w-fit" />
+
+        <div className="relative min-w-[200px] flex-1">
+          <Search size={15} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink/40" />
+          <input
+            value={descriptionInput}
+            onChange={(event) => setDescriptionInput(event.target.value)}
+            placeholder="Buscar por descrição..."
+            aria-label="Buscar por descrição"
+            className={`${inputClass} w-full pl-9`}
+          />
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setFiltersOpen((open) => !open)}
+          className={`inline-flex h-11 items-center gap-1.5 rounded-2xl px-3.5 text-sm font-medium transition-colors ${
+            filtersOpen || extraFiltersCount > 0 ? 'bg-brand-100 text-brand-700' : 'bg-surface text-ink/70 hover:text-ink'
+          }`}
+        >
+          <SlidersHorizontal size={15} />
+          Filtros
+          {extraFiltersCount > 0 && (
+            <span className="flex h-4.5 min-w-4.5 items-center justify-center rounded-full bg-brand-500 px-1 text-[10px] font-bold text-white">
+              {extraFiltersCount}
+            </span>
+          )}
+        </button>
+
+        {hasActiveFilters && (
+          <button
+            type="button"
+            onClick={clearFilters}
+            className="inline-flex h-11 items-center gap-1 rounded-2xl px-3 text-sm font-medium text-ink/55 hover:text-ink"
+          >
+            <X size={14} />
+            Limpar
+          </button>
+        )}
+      </div>
+
+      {filtersOpen && (
+        <Card className="relative z-20 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <PickerField
+            label="Categoria"
+            placeholder="Todas as categorias"
+            options={categoryOptions}
+            value={categoryUuid}
+            onChange={setCategoryUuid}
+          />
+          <PickerField
+            label="Conta / Cartão"
+            placeholder="Todas as contas/cartões"
+            options={accountOrCardOptions}
+            value={accountOrCardUuid}
+            onChange={setAccountOrCardUuid}
+          />
+          <Field label="De" htmlFor="dateFrom">
+            <input
+              id="dateFrom"
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className={`${inputClass} min-w-0 flex-1`}
+            />
+          </Field>
+          <Field label="Até" htmlFor="dateTo">
+            <input
+              id="dateTo"
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(event) => setDateTo(event.target.value)}
+              className={`${inputClass} min-w-0 flex-1`}
+            />
+          </Field>
+        </Card>
+      )}
 
       {transactionsQuery.isError && <ErrorBanner error={transactionsQuery.error} />}
 
@@ -80,17 +241,19 @@ export function TransactionsPage() {
         </div>
       )}
 
-      {sorted.length === 0 && !transactionsQuery.isLoading && (
+      {transactions.length === 0 && !transactionsQuery.isLoading && (
         <Card className="flex flex-col items-center gap-2 py-8 text-center">
           <Receipt size={28} className="text-ink/35" />
-          <p className="text-sm text-ink/60">Nenhuma transação encontrada.</p>
+          <p className="text-sm text-ink/60">
+            {hasActiveFilters ? 'Nenhuma transação encontrada para esses filtros.' : 'Nenhuma transação encontrada.'}
+          </p>
         </Card>
       )}
 
-      {sorted.length > 0 && (
+      {transactions.length > 0 && (
         <>
           <div className="flex flex-col gap-2 lg:hidden">
-            {sorted.map((transaction) => {
+            {transactions.map((transaction) => {
               const tone = flowTone(transaction.type)
               return (
                 <Link key={transaction.uuid} to={`/transacoes/${transaction.uuid}`}>
@@ -125,7 +288,7 @@ export function TransactionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((transaction) => {
+                {transactions.map((transaction) => {
                   const tone = flowTone(transaction.type)
                   const { text: categoryText, bg: categoryBg } = categoryColor(
                     transaction.categoryName ?? 'Câmbio',

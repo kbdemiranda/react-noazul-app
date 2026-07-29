@@ -27,7 +27,7 @@ export function DashboardPage() {
 
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const creditCardsQuery = useQuery({ queryKey: ['credit-cards'], queryFn: creditCardsApi.list })
-  const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: transactionsApi.list })
+  const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: () => transactionsApi.list() })
 
   const createMutation = useMutation({
     mutationFn: (payload: TransactionPayload) => transactionsApi.create(payload),
