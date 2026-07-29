@@ -118,8 +118,10 @@ export function TransactionsPage() {
     [accountsQuery.data, creditCardsQuery.data],
   )
 
-  const extraFiltersCount = [categoryUuid, accountOrCardUuid, dateFrom, dateTo].filter(Boolean).length
-  const hasActiveFilters = filter !== 'ALL' || description !== '' || extraFiltersCount > 0
+  const extraFiltersCount = [descriptionInput.trim(), categoryUuid, accountOrCardUuid, dateFrom, dateTo].filter(
+    Boolean,
+  ).length
+  const hasActiveFilters = filter !== 'ALL' || extraFiltersCount > 0
 
   function clearFilters() {
     setFilter('ALL')
@@ -153,17 +155,6 @@ export function TransactionsPage() {
       <div className="flex flex-wrap items-center gap-2">
         <SegmentedControl name="filtro" options={filterOptions} value={filter} onChange={setFilter} className="w-fit" />
 
-        <div className="relative min-w-[200px] flex-1">
-          <Search size={15} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink/40" />
-          <input
-            value={descriptionInput}
-            onChange={(event) => setDescriptionInput(event.target.value)}
-            placeholder="Buscar por descrição..."
-            aria-label="Buscar por descrição"
-            className={`${inputClass} w-full pl-9`}
-          />
-        </div>
-
         <button
           type="button"
           onClick={() => setFiltersOpen((open) => !open)}
@@ -194,6 +185,21 @@ export function TransactionsPage() {
 
       {filtersOpen && (
         <Card className="relative z-20 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+          <div className="flex min-w-0 flex-1 flex-col gap-1.5">
+            <label htmlFor="descriptionFilter" className="text-[13px] font-semibold text-ink">
+              Descrição
+            </label>
+            <div className="relative">
+              <Search size={15} className="pointer-events-none absolute top-1/2 left-3.5 -translate-y-1/2 text-ink/40" />
+              <input
+                id="descriptionFilter"
+                value={descriptionInput}
+                onChange={(event) => setDescriptionInput(event.target.value)}
+                placeholder="Buscar por descrição..."
+                className={`${inputClass} w-full pl-9`}
+              />
+            </div>
+          </div>
           <PickerField
             label="Categoria"
             placeholder="Todas as categorias"
