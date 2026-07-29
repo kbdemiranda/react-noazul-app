@@ -167,6 +167,20 @@ export const mockAccounts = {
     account.balances.push(balance)
     return delay(balance)
   },
+  async removeBalance(uuidStr: string, balanceUuid: string): Promise<void> {
+    const account = accounts.find((a) => a.uuid === uuidStr)
+    if (!account) throw new Error('Conta não encontrada.')
+    const balance = account.balances.find((b) => b.uuid === balanceUuid)
+    if (!balance) throw new Error('Saldo de conta não encontrado.')
+    if (balance.balance !== 0) {
+      throw new Error(`A conta "${account.name}" ainda possui saldo em ${balance.currency}; ele precisa estar zerado para removê-la.`)
+    }
+    if (account.balances.length <= 1) {
+      throw new Error(`A conta "${account.name}" precisa manter pelo menos uma moeda.`)
+    }
+    account.balances = account.balances.filter((b) => b.uuid !== balanceUuid)
+    return delay(undefined)
+  },
 }
 
 export const mockCreditCards = {

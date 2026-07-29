@@ -54,4 +54,8 @@ export const accountsApi = {
     const { data } = await apiClient.post<AccountBalance>(`/accounts/${uuid}/balances`, payload)
     return data
   },
+  async removeBalance(uuid: string, balanceUuid: string): Promise<void> {
+    if (USE_MOCKS) return mockAccounts.removeBalance(uuid, balanceUuid)
+    await apiClient.delete(`/accounts/${uuid}/balances/${balanceUuid}`)
+  },
 }
