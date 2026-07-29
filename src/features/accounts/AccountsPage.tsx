@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Landmark, Plus } from 'lucide-react'
+import { Landmark, Plus, X } from 'lucide-react'
 import { useState } from 'react'
 import {
   accountsApi,
@@ -48,6 +48,12 @@ export function AccountsPage() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
   })
 
+  const removeBalanceMutation = useMutation({
+    mutationFn: ({ uuid, balanceUuid }: { uuid: string; balanceUuid: string }) =>
+      accountsApi.removeBalance(uuid, balanceUuid),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+  })
+
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
@@ -60,6 +66,7 @@ export function AccountsPage() {
 
       {accountsQuery.isError && <ErrorBanner error={accountsQuery.error} />}
       {archiveMutation.isError && <ErrorBanner error={archiveMutation.error} />}
+      {removeBalanceMutation.isError && <ErrorBanner error={removeBalanceMutation.error} />}
 
       {accountsQuery.isLoading && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -94,16 +101,39 @@ export function AccountsPage() {
                 </div>
               </div>
               <div className="flex flex-col gap-1.5">
-                {account.balances.map((balance) => (
-                  <div key={balance.uuid} className="flex items-baseline justify-between gap-2">
-                    <p className="font-heading text-2xl tabular-nums text-ink">
-                      {formatCurrency(balance.balance, balance.currency)}
-                    </p>
-                    <Badge variant="neutral" title={currencyLabels[balance.currency]}>
-                      {balance.currency}
-                    </Badge>
-                  </div>
-                ))}
+                {account.balances.map((balance) => {
+                  const canRemove = balance.balance === 0 && account.balances.length > 1
+                  const removeTitle =
+                    account.balances.length <= 1
+                      ? 'A conta precisa manter pelo menos uma moeda'
+                      : balance.balance !== 0
+                        ? 'Zere o saldo nesta moeda antes de removê-la'
+                        : 'Remover moeda'
+                  return (
+                    <div key={balance.uuid} className="flex items-baseline justify-between gap-2">
+                      <p className="font-heading text-2xl tabular-nums text-ink">
+                        {formatCurrency(balance.balance, balance.currency)}
+                      </p>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="neutral" title={currencyLabels[balance.currency]}>
+                          {balance.currency}
+                        </Badge>
+                        <button
+                          type="button"
+                          aria-label={`Remover ${balance.currency}`}
+                          title={removeTitle}
+                          disabled={!canRemove || removeBalanceMutation.isPending}
+                          className="rounded-full p-0.5 text-ink/35 transition-colors hover:bg-black/[.06] hover:text-ink/70 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                          onClick={() =>
+                            removeBalanceMutation.mutate({ uuid: account.uuid, balanceUuid: balance.uuid })
+                          }
+                        >
+                          <X size={12} />
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
               <div className="flex gap-2">
                 <Button variant="secondary" className="flex-1" onClick={() => setEditingAccount(account)}>
