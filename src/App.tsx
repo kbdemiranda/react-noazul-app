@@ -12,6 +12,7 @@ import { ExchangePage } from './features/exchange/ExchangePage'
 import { CreditCardsPage } from './features/creditCards/CreditCardsPage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { TransactionDetailPage } from './features/transactions/TransactionDetailPage'
+import { BankImportPage } from './features/bankImport/BankImportPage'
 import { CategoriesPage } from './features/categories/CategoriesPage'
 import { ProfilePage } from './features/profile/ProfilePage'
 import { AppLayout } from './layout/AppLayout'
@@ -45,6 +46,7 @@ function App() {
                   <Route path="/dashboard" element={<DashboardPage />} />
                   <Route path="/transacoes" element={<TransactionsPage />} />
                   <Route path="/transacoes/:uuid" element={<TransactionDetailPage />} />
+                  <Route path="/importacao-bancaria" element={<BankImportPage />} />
                   <Route path="/contas" element={<AccountsPage />} />
                   <Route path="/cambio" element={<ExchangePage />} />
                   <Route path="/cartoes" element={<CreditCardsPage />} />

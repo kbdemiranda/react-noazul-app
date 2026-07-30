@@ -3,6 +3,12 @@ import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload 
 import type { CreditCardPayload } from './creditCards'
 import type { CategoryPayload } from './categories'
 import type { TransactionFilters, TransactionPayload } from './transactions'
+import type {
+  BankImportCandidate,
+  BankImportCommitParams,
+  BankImportCommitResult,
+  BankImportParseParams,
+} from './bankImports'
 
 function uuid(): string {
   return crypto.randomUUID()
@@ -370,5 +376,90 @@ export const mockAttachments = {
   },
   async download(): Promise<Blob> {
     return delay(new Blob(['Arquivo simulado — modo mock, sem backend.'], { type: 'text/plain' }))
+  },
+}
+
+// Keyed by targetType + whichever account/card uuid was chosen, tracking which
+// externalRef values have already been committed — mirrors the backend's
+// per-source FITID uniqueness so re-uploading/re-confirming the same mock file
+// flags the same rows as duplicates, without a real .ofx being parsed client-side.
+const importedExternalRefsBySource = new Map<string, Set<string>>()
+
+function bankImportSourceKey(params: { targetType: string; accountBalanceUuid?: string; creditCardUuid?: string }): string {
+  return `${params.targetType}:${params.accountBalanceUuid ?? params.creditCardUuid ?? ''}`
+}
+
+function isoDateDaysAgo(days: number): string {
+  const date = new Date()
+  date.setDate(date.getDate() - days)
+  return date.toISOString().slice(0, 10)
+}
+
+const mockOfxCandidates: Omit<BankImportCandidate, 'likelyDuplicate' | 'duplicateOfTransactionUuid'>[] = [
+  { externalRef: 'MOCK-OFX-1', date: isoDateDaysAgo(5), description: 'SUPERMERCADO BOM PRECO', amount: 89.9, type: 'EXPENSE' },
+  { externalRef: 'MOCK-OFX-2', date: isoDateDaysAgo(3), description: 'SALARIO', amount: 2500, type: 'INCOME' },
+  { externalRef: 'MOCK-OFX-3', date: isoDateDaysAgo(2), description: 'ASSINATURA STREAMING', amount: 39.9, type: 'EXPENSE' },
+  { externalRef: 'MOCK-OFX-4', date: isoDateDaysAgo(1), description: 'POSTO DE GASOLINA', amount: 150, type: 'EXPENSE' },
+]
+
+export const mockBankImports = {
+  async parse(params: BankImportParseParams): Promise<BankImportCandidate[]> {
+    const key = bankImportSourceKey(params)
+    const imported = importedExternalRefsBySource.get(key) ?? new Set<string>()
+    const candidates = mockOfxCandidates.map((candidate) => ({
+      ...candidate,
+      likelyDuplicate: imported.has(candidate.externalRef),
+      duplicateOfTransactionUuid: null,
+    }))
+    return delay(candidates)
+  },
+  async commit(params: BankImportCommitParams): Promise<BankImportCommitResult> {
+    const key = bankImportSourceKey(params)
+    const imported = importedExternalRefsBySource.get(key) ?? new Set<string>()
+    const from = params.targetType === 'ACCOUNT_BALANCE' ? findAccountAndBalance(params.accountBalanceUuid) : undefined
+    const creditCard =
+      params.targetType === 'CREDIT_CARD' ? creditCards.find((c) => c.uuid === params.creditCardUuid) : undefined
+
+    let importedCount = 0
+    let skippedDuplicateCount = 0
+    const created: Transaction[] = []
+
+    for (const line of params.lines) {
+      if (imported.has(line.externalRef)) {
+        skippedDuplicateCount += 1
+        continue
+      }
+      const category = categories.find((c) => c.uuid === line.categoryUuid)
+      const now = new Date().toISOString()
+      const transaction: Transaction = {
+        uuid: uuid(),
+        description: line.description,
+        amount: line.amount,
+        type: line.type,
+        date: line.date,
+        time: '00:00:00',
+        categoryUuid: category?.uuid ?? null,
+        categoryName: category?.name ?? null,
+        fromAccountBalanceUuid: from?.balance.uuid ?? null,
+        fromAccountName: from?.account.name ?? null,
+        fromAccountCurrency: from?.balance.currency ?? null,
+        fromCreditCardUuid: creditCard?.uuid ?? null,
+        fromCreditCardName: creditCard?.name ?? null,
+        toAccountBalanceUuid: null,
+        toAccountName: null,
+        toAccountCurrency: null,
+        convertedAmount: null,
+        createdAt: now,
+        updatedAt: now,
+      }
+      transactions.push(transaction)
+      adjustAccountBalance(transaction, 1)
+      imported.add(line.externalRef)
+      created.push(transaction)
+      importedCount += 1
+    }
+
+    importedExternalRefsBySource.set(key, imported)
+    return delay({ importedCount, skippedDuplicateCount, transactions: created })
   },
 }

@@ -7,6 +7,7 @@ import { useAuth } from '../context/AuthContext'
 const navItems = [
   { to: '/dashboard', label: 'Visão geral', end: true },
   { to: '/transacoes', label: 'Transações' },
+  { to: '/importacao-bancaria', label: 'Importação bancária' },
   { to: '/contas', label: 'Contas' },
   { to: '/cambio', label: 'Câmbio' },
   { to: '/cartoes', label: 'Cartões' },
