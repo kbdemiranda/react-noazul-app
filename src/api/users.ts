@@ -1,7 +1,7 @@
 import { apiClient } from './client'
 import { USE_MOCKS } from '../lib/mockConfig'
 import { mockUsers } from './mockStore'
-import type { User } from '../types/domain'
+import type { Currency, Theme, User } from '../types/domain'
 
 export interface UpdateProfilePayload {
   name: string
@@ -10,6 +10,12 @@ export interface UpdateProfilePayload {
 export interface ChangePasswordPayload {
   currentPassword: string
   newPassword: string
+}
+
+export interface UpdatePreferencesPayload {
+  theme: Theme
+  defaultCurrency: Currency
+  emailNotificationsEnabled: boolean
 }
 
 export const usersApi = {
@@ -34,5 +40,10 @@ export const usersApi = {
   async logoutAllDevices(): Promise<void> {
     if (USE_MOCKS) return mockUsers.logoutAllDevices()
     await apiClient.post('/users/me/logout-all')
+  },
+  async updatePreferences(payload: UpdatePreferencesPayload): Promise<User> {
+    if (USE_MOCKS) return mockUsers.updatePreferences(payload)
+    const { data } = await apiClient.patch<User>('/users/me/preferences', payload)
+    return data
   },
 }

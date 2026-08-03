@@ -3,6 +3,7 @@ import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload 
 import type { CreditCardPayload } from './creditCards'
 import type { CategoryPayload } from './categories'
 import type { TransactionFilters, TransactionPayload } from './transactions'
+import type { UpdatePreferencesPayload } from './users'
 import type {
   BankImportCandidate,
   BankImportCommitParams,
@@ -56,7 +57,14 @@ const seedCategories: Category[] = [
   { uuid: '34b3e1cd-2609-497a-b807-29530ceb1774', name: 'Salário', type: 'INCOME', origin: 'SYSTEM', parentUuid: null },
 ]
 
-let mockUser: User = { uuid: 'mock-user', name: 'Marina Souza', email: 'marina.souza@example.com' }
+let mockUser: User = {
+  uuid: 'mock-user',
+  name: 'Marina Souza',
+  email: 'marina.souza@example.com',
+  theme: 'SYSTEM',
+  defaultCurrency: 'BRL',
+  emailNotificationsEnabled: true,
+}
 
 const categories: Category[] = seedCategories.map((c) => ({ ...c }))
 const archivedCategoryUuids = new Set<string>()
@@ -132,6 +140,10 @@ export const mockUsers = {
   },
   async logoutAllDevices(): Promise<void> {
     return delay(undefined)
+  },
+  async updatePreferences(payload: UpdatePreferencesPayload): Promise<User> {
+    mockUser = { ...mockUser, ...payload }
+    return delay(mockUser)
   },
 }
 

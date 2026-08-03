@@ -8,10 +8,15 @@ export type Currency = 'BRL' | 'USD' | 'EUR' | 'GBP' | 'ARS'
 
 export type CategoryOrigin = 'SYSTEM' | 'USER'
 
+export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM'
+
 export interface User {
   uuid: string
   name: string
   email: string
+  theme: Theme
+  defaultCurrency: Currency
+  emailNotificationsEnabled: boolean
 }
 
 export interface AuthTokens {

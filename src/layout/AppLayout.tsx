@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { LogOut, Menu, X } from 'lucide-react'
+import { LogOut, Menu, Settings, X } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { BrandMark } from '../components/BrandMark'
 import { useAuth } from '../context/AuthContext'
@@ -7,12 +7,9 @@ import { useAuth } from '../context/AuthContext'
 const navItems = [
   { to: '/dashboard', label: 'Visão geral', end: true },
   { to: '/transacoes', label: 'Transações' },
-  { to: '/importacao-bancaria', label: 'Importação bancária' },
   { to: '/contas', label: 'Contas' },
   { to: '/cambio', label: 'Câmbio' },
   { to: '/cartoes', label: 'Cartões' },
-  { to: '/categorias', label: 'Categorias' },
-  { to: '/perfil', label: 'Perfil' },
 ]
 
 export function AppLayout() {
@@ -45,8 +42,19 @@ export function AppLayout() {
             ))}
           </nav>
 
-          <div className="ml-auto hidden items-center gap-3.5 md:flex">
-            <span className="text-sm text-ink/70">{user?.name}</span>
+          <div className="ml-auto hidden items-center gap-2 md:flex">
+            <span className="mr-1.5 text-sm text-ink/70">{user?.name}</span>
+            <NavLink
+              to="/configuracoes"
+              aria-label="Configurações"
+              className={({ isActive }) =>
+                `flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
+                  isActive ? 'bg-brand-100 text-brand-700' : 'bg-black/[.06] text-ink/70 hover:bg-black/[.1] hover:text-ink'
+                }`
+              }
+            >
+              <Settings size={15} />
+            </NavLink>
             <button
               type="button"
               onClick={() => logout()}
@@ -101,16 +109,30 @@ export function AppLayout() {
           </nav>
           <div className="flex items-center justify-between px-5 py-3.5">
             <span className="text-sm text-ink/70">{user?.name}</span>
-            <button
-              type="button"
-              onClick={() => {
-                setIsMenuOpen(false)
-                logout()
-              }}
-              className="rounded-full px-3 py-1.5 text-sm font-semibold text-brand-500 hover:bg-brand-100"
-            >
-              Sair
-            </button>
+            <div className="flex items-center gap-1.5">
+              <NavLink
+                to="/configuracoes"
+                onClick={() => setIsMenuOpen(false)}
+                aria-label="Configurações"
+                className={({ isActive }) =>
+                  `flex h-8 w-8 items-center justify-center rounded-full ${
+                    isActive ? 'bg-brand-100 text-brand-700' : 'text-ink/70 hover:bg-black/[.06]'
+                  }`
+                }
+              >
+                <Settings size={16} />
+              </NavLink>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsMenuOpen(false)
+                  logout()
+                }}
+                className="rounded-full px-3 py-1.5 text-sm font-semibold text-brand-500 hover:bg-brand-100"
+              >
+                Sair
+              </button>
+            </div>
           </div>
         </div>
       )}
