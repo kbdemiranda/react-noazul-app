@@ -46,4 +46,15 @@ export const usersApi = {
     const { data } = await apiClient.patch<User>('/users/me/preferences', payload)
     return data
   },
+  async uploadAvatar(file: File): Promise<User> {
+    if (USE_MOCKS) return mockUsers.uploadAvatar(file)
+    const formData = new FormData()
+    formData.append('file', file)
+    const { data } = await apiClient.post<User>('/users/me/avatar', formData)
+    return data
+  },
+  async deleteAvatar(): Promise<void> {
+    if (USE_MOCKS) return mockUsers.deleteAvatar()
+    await apiClient.delete('/users/me/avatar')
+  },
 }

@@ -64,6 +64,7 @@ let mockUser: User = {
   theme: 'SYSTEM',
   defaultCurrency: 'BRL',
   emailNotificationsEnabled: true,
+  avatarUrl: null,
 }
 
 const categories: Category[] = seedCategories.map((c) => ({ ...c }))
@@ -144,6 +145,16 @@ export const mockUsers = {
   async updatePreferences(payload: UpdatePreferencesPayload): Promise<User> {
     mockUser = { ...mockUser, ...payload }
     return delay(mockUser)
+  },
+  async uploadAvatar(file: File): Promise<User> {
+    if (mockUser.avatarUrl?.startsWith('blob:')) URL.revokeObjectURL(mockUser.avatarUrl)
+    mockUser = { ...mockUser, avatarUrl: URL.createObjectURL(file) }
+    return delay(mockUser)
+  },
+  async deleteAvatar(): Promise<void> {
+    if (mockUser.avatarUrl?.startsWith('blob:')) URL.revokeObjectURL(mockUser.avatarUrl)
+    mockUser = { ...mockUser, avatarUrl: null }
+    return delay(undefined)
   },
 }
 

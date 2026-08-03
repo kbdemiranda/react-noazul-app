@@ -17,6 +17,7 @@ export interface User {
   theme: Theme
   defaultCurrency: Currency
   emailNotificationsEnabled: boolean
+  avatarUrl: string | null
 }
 
 export interface AuthTokens {

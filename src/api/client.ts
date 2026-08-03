@@ -18,8 +18,21 @@ export function setSessionExpiredHandler(handler: () => void): void {
   onSessionExpired = handler
 }
 
+const API_BASE_URL = '/api'
+
+/**
+ * Resolves a backend-relative path (e.g. `user.avatarUrl`) to a fetchable URL,
+ * for use outside apiClient (like a plain `<img src>`). Passes through
+ * already-absolute URLs unchanged — USE_MOCKS returns a local `blob:` URL for
+ * avatars, which must not be prefixed.
+ */
+export function toApiUrl(path: string): string {
+  if (/^(blob:|https?:)/.test(path)) return path
+  return `${API_BASE_URL}${path}`
+}
+
 export const apiClient = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
 })
 
 apiClient.interceptors.request.use((config) => {

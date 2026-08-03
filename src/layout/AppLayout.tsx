@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { LogOut, Menu, Settings, X } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { toApiUrl } from '../api/client'
+import { Avatar } from '../components/Avatar'
 import { BrandMark } from '../components/BrandMark'
 import { useAuth } from '../context/AuthContext'
 
@@ -43,6 +45,7 @@ export function AppLayout() {
           </nav>
 
           <div className="ml-auto hidden items-center gap-2 md:flex">
+            <Avatar src={user?.avatarUrl ? toApiUrl(user.avatarUrl) : null} name={user?.name ?? ''} size={28} />
             <span className="mr-1.5 text-sm text-ink/70">{user?.name}</span>
             <NavLink
               to="/configuracoes"
@@ -108,7 +111,10 @@ export function AppLayout() {
             ))}
           </nav>
           <div className="flex items-center justify-between px-5 py-3.5">
-            <span className="text-sm text-ink/70">{user?.name}</span>
+            <span className="flex items-center gap-2 text-sm text-ink/70">
+              <Avatar src={user?.avatarUrl ? toApiUrl(user.avatarUrl) : null} name={user?.name ?? ''} size={24} />
+              {user?.name}
+            </span>
             <div className="flex items-center gap-1.5">
               <NavLink
                 to="/configuracoes"
