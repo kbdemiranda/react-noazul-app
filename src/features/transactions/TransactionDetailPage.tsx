@@ -14,6 +14,7 @@ import { CategoryIconBadge, categoryColor } from '../../lib/categoryIcons'
 import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate, formatTime } from '../../lib/format'
 import { flowTypeLabels } from '../../lib/labels'
+import { ExchangeFormModal } from '../exchange/ExchangeFormModal'
 import { TransactionFormModal } from './TransactionFormModal'
 
 export function TransactionDetailPage() {
@@ -124,13 +125,7 @@ export function TransactionDetailPage() {
         {deleteMutation.isError && <ErrorBanner error={deleteMutation.error} />}
 
         <div className="flex gap-2">
-          <Button
-            variant="secondary"
-            className="flex-1"
-            disabled={transaction.type === 'EXCHANGE'}
-            title={transaction.type === 'EXCHANGE' ? 'Edição de câmbio indisponível nesta versão' : undefined}
-            onClick={() => setIsEditing(true)}
-          >
+          <Button variant="secondary" className="flex-1" onClick={() => setIsEditing(true)}>
             Editar
           </Button>
           <Button
@@ -153,15 +148,26 @@ export function TransactionDetailPage() {
         <AttachmentsList transactionUuid={uuid} />
       </Card>
 
-      {isEditing && (
+      {isEditing && transaction.type === 'EXCHANGE' && (
+        <ExchangeFormModal
+          transaction={transaction}
+          // Same "holds more than one currency" filter ExchangePage uses —
+          // a câmbio can only ever involve one of these accounts.
+          accounts={(accountsQuery.data ?? []).filter((account) => account.balances.length > 1)}
+          onClose={() => setIsEditing(false)}
+          onSubmit={async (payload) => {
+            await updateMutation.mutateAsync(payload)
+          }}
+        />
+      )}
+
+      {isEditing && transaction.type !== 'EXCHANGE' && (
         <TransactionFormModal
           transaction={transaction}
           accounts={accountsQuery.data ?? []}
           creditCards={creditCardsQuery.data ?? []}
           onClose={() => setIsEditing(false)}
-          onSubmit={async (payload) => {
-            await updateMutation.mutateAsync(payload)
-          }}
+          onSubmit={(payload) => updateMutation.mutateAsync(payload)}
         />
       )}
 

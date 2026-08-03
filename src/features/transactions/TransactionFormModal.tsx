@@ -1,13 +1,15 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
 import { addMonths, addWeeks, addYears, parseISO } from 'date-fns'
-import { MessageSquareText, Paperclip, Repeat2 } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { FileText, MessageSquareText, Paperclip, Repeat2, Trash2 } from 'lucide-react'
+import { useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
 import type { Account, AccountType, CreditCard, Currency, Transaction } from '../../types/domain'
+import { attachmentsApi } from '../../api/attachments'
 import { categoriesApi } from '../../api/categories'
 import type { TransactionPayload } from '../../api/transactions'
+import { AttachmentsList, ACCEPTED_ATTACHMENT_TYPES } from '../attachments/AttachmentsList'
 import { Button } from '../../components/Button'
 import { CurrencyInput } from '../../components/CurrencyInput'
 import { ErrorBanner } from '../../components/ErrorBanner'
@@ -18,7 +20,7 @@ import { TimeField } from '../../components/TimeField'
 import { WarningBanner } from '../../components/WarningBanner'
 import { BankLogo } from '../../lib/bankLogos'
 import { CategoryIconBadge } from '../../lib/categoryIcons'
-import { formatCurrency, formatDayMonthYearPtBR, todayIsoDate } from '../../lib/format'
+import { formatCurrency, formatDayMonthYearPtBR, formatFileSize, todayIsoDate } from '../../lib/format'
 import { accountTypeLabels } from '../../lib/labels'
 
 const schema = z
@@ -84,7 +86,7 @@ interface TransactionFormModalProps {
   accounts: Account[]
   creditCards: CreditCard[]
   onClose: () => void
-  onSubmit: (payload: TransactionPayload) => Promise<void>
+  onSubmit: (payload: TransactionPayload) => Promise<Transaction>
 }
 
 export function TransactionFormModal({
@@ -104,6 +106,8 @@ export function TransactionFormModal({
   const [showNote, setShowNote] = useState(false)
   const [note, setNote] = useState('')
   const [showAttachmentsHint, setShowAttachmentsHint] = useState(false)
+  const [pendingAttachments, setPendingAttachments] = useState<File[]>([])
+  const pendingAttachmentInputRef = useRef<HTMLInputElement>(null)
 
   const balanceOptions = useMemo<BalanceOption[]>(
     () =>
@@ -132,8 +136,8 @@ export function TransactionFormModal({
       ? {
           description: transaction.description,
           amount: transaction.amount,
-          // This modal no longer creates/edits EXCHANGE transactions (see TransactionDetailPage,
-          // which hides the edit action for that type), so the cast is always safe here.
+          // This modal never handles EXCHANGE — TransactionDetailPage routes those
+          // edits to ExchangeFormModal instead — so the cast is always safe here.
           type: transaction.type as 'INCOME' | 'EXPENSE' | 'TRANSFER',
           date: transaction.date,
           time: transaction.time?.slice(0, 5),
@@ -270,7 +274,7 @@ export function TransactionFormModal({
       }
     }
     try {
-      await onSubmit({
+      const savedTransaction = await onSubmit({
         description: values.description,
         amount: values.amount,
         type: values.type,
@@ -288,10 +292,24 @@ export function TransactionFormModal({
         toAccountBalanceUuid: values.type === 'TRANSFER' ? values.toAccountBalanceUuid : null,
         convertedAmount: null,
       })
+      for (const file of pendingAttachments) {
+        await attachmentsApi.upload(savedTransaction.uuid, file)
+      }
       onClose()
     } catch (error) {
       setSubmitError(error)
     }
+  }
+
+  const handlePendingAttachmentChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+    setPendingAttachments((current) => [...current, file])
+    if (pendingAttachmentInputRef.current) pendingAttachmentInputRef.current.value = ''
+  }
+
+  const removePendingAttachment = (index: number) => {
+    setPendingAttachments((current) => current.filter((_, i) => i !== index))
   }
 
   return (
@@ -568,11 +586,60 @@ export function TransactionFormModal({
           </Field>
         )}
 
-        {showAttachmentsHint && (
-          <p className="rounded-2xl bg-surface px-3.5 py-2.5 text-xs text-ink/60">
-            Anexos ficam disponíveis depois de salvar a transação, na tela de detalhes.
-          </p>
-        )}
+        {showAttachmentsHint &&
+          (transaction ? (
+            <div className="rounded-2xl bg-surface p-3">
+              <AttachmentsList transactionUuid={transaction.uuid} />
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
+              {pendingAttachments.length === 0 && (
+                <p className="text-[12.5px] text-ink/60">
+                  Selecione os comprovantes agora — eles são enviados assim que a transação for salva.
+                </p>
+              )}
+              {pendingAttachments.length > 0 && (
+                <ul className="flex flex-col">
+                  {pendingAttachments.map((file, index) => (
+                    <li
+                      key={`${file.name}-${index}`}
+                      className="flex items-center gap-2.5 border-b border-black/[.06] py-2 last:border-b-0"
+                    >
+                      <FileText size={16} className="flex-none text-ink/50" />
+                      <div className="min-w-0 flex-1 text-[12.5px]">
+                        <p className="truncate text-ink">{file.name}</p>
+                        <p className="text-[11px] text-ink/55">{formatFileSize(file.size)}</p>
+                      </div>
+                      <button
+                        type="button"
+                        aria-label={`Remover ${file.name}`}
+                        className="rounded-full p-1.5 text-expense hover:bg-expense-vivid/12"
+                        onClick={() => removePendingAttachment(index)}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <input
+                ref={pendingAttachmentInputRef}
+                type="file"
+                accept={ACCEPTED_ATTACHMENT_TYPES}
+                className="hidden"
+                onChange={handlePendingAttachmentChange}
+              />
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-fit px-0"
+                onClick={() => pendingAttachmentInputRef.current?.click()}
+              >
+                <Paperclip size={14} />
+                Anexar comprovante
+              </Button>
+            </div>
+          ))}
 
         {Boolean(submitError) && <ErrorBanner error={submitError} />}
 

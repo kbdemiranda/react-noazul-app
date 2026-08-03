@@ -334,9 +334,7 @@ export function TransactionsPage() {
           accounts={accountsQuery.data ?? []}
           creditCards={creditCardsQuery.data ?? []}
           onClose={() => setIsCreating(false)}
-          onSubmit={async (payload) => {
-            await createMutation.mutateAsync(payload)
-          }}
+          onSubmit={(payload) => createMutation.mutateAsync(payload)}
         />
       )}
     </div>

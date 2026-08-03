@@ -121,9 +121,7 @@ export function DashboardPage() {
           accounts={accounts}
           creditCards={creditCards}
           onClose={() => setIsCreating(false)}
-          onSubmit={async (payload) => {
-            await createMutation.mutateAsync(payload)
-          }}
+          onSubmit={(payload) => createMutation.mutateAsync(payload)}
         />
       )}
 

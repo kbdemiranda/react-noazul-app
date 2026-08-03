@@ -7,7 +7,7 @@ import { CardKicker } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { formatFileSize } from '../../lib/format'
 
-const ACCEPTED_TYPES = '.pdf,.jpg,.jpeg,.png,.webp'
+export const ACCEPTED_ATTACHMENT_TYPES = '.pdf,.jpg,.jpeg,.png,.webp'
 
 export function AttachmentsList({ transactionUuid }: { transactionUuid: string }) {
   const queryClient = useQueryClient()
@@ -100,7 +100,13 @@ export function AttachmentsList({ transactionUuid }: { transactionUuid: string }
         ))}
       </ul>
 
-      <input ref={fileInputRef} type="file" accept={ACCEPTED_TYPES} className="hidden" onChange={handleFileChange} />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={ACCEPTED_ATTACHMENT_TYPES}
+        className="hidden"
+        onChange={handleFileChange}
+      />
       <Button
         type="button"
         variant="ghost"

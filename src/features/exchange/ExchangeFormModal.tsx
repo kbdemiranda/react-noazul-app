@@ -23,11 +23,15 @@ import { PickerField, type PickerOption } from '../../components/PickerField'
 import { TimeField } from '../../components/TimeField'
 import { BankLogo } from '../../lib/bankLogos'
 import { formatCurrency, todayIsoDate } from '../../lib/format'
-import type { Account, AccountBalance, Currency } from '../../types/domain'
+import type { Account, AccountBalance, Currency, Transaction } from '../../types/domain'
+
+const DEFAULT_DESCRIPTION = 'Conversão'
 
 const schema = z
   .object({
-    description: z.string().min(1, 'Informe uma descrição'),
+    // Optional on purpose — the field starts hidden and blank; if the user
+    // never opens it or leaves it empty, submit() falls back to "Câmbio".
+    description: z.string().optional(),
     date: z.string().min(1, 'Informe a data'),
     time: z.string().optional(),
     amount: z.coerce.number().positive('Informe um valor maior que zero'),
@@ -58,6 +62,9 @@ interface ExchangeFormModalProps {
   // Only accounts holding more than one currency make sense here — a
   // câmbio always converts between two balances of the same account.
   accounts: Account[]
+  // Present when editing an existing câmbio — the backend allows updating an
+  // EXCHANGE transaction the same as any other type.
+  transaction?: Transaction
   onClose: () => void
   onSubmit: (payload: TransactionPayload) => Promise<void>
 }
@@ -97,11 +104,11 @@ function balancePickerOptions(balances: AccountBalance[], excludeUuid?: string):
     }))
 }
 
-export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormModalProps) {
+export function ExchangeFormModal({ accounts, transaction, onClose, onSubmit }: ExchangeFormModalProps) {
   const [submitError, setSubmitError] = useState<unknown>(null)
-  // Descrição stays open by default — it's required by the backend, unlike
-  // Observação (never submitted, matches TransactionFormModal's local-only note).
-  const [showDescription, setShowDescription] = useState(true)
+  // Starts open when editing (there's already a description to show), and
+  // closed-blank when creating (see DEFAULT_DESCRIPTION fallback on submit).
+  const [showDescription, setShowDescription] = useState(Boolean(transaction))
   const [showNote, setShowNote] = useState(false)
   const [note, setNote] = useState('')
   // Tracks the quote fetched by the convert button — independent from form
@@ -121,10 +128,23 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
     formState: { errors, isSubmitting },
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: {
-      date: todayIsoDate(),
-      accountUuid: accounts[0]?.uuid,
-    },
+    defaultValues: transaction
+      ? {
+          description: transaction.description,
+          date: transaction.date,
+          time: transaction.time?.slice(0, 5),
+          amount: transaction.amount,
+          convertedAmount: transaction.convertedAmount ?? undefined,
+          accountUuid: accounts.find((account) =>
+            account.balances.some((balance) => balance.uuid === transaction.fromAccountBalanceUuid),
+          )?.uuid,
+          fromAccountBalanceUuid: transaction.fromAccountBalanceUuid ?? undefined,
+          toAccountBalanceUuid: transaction.toAccountBalanceUuid ?? undefined,
+        }
+      : {
+          date: todayIsoDate(),
+          accountUuid: accounts[0]?.uuid,
+        },
   })
 
   const accountUuid = watch('accountUuid')
@@ -219,7 +239,7 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
     setSubmitError(null)
     try {
       await onSubmit({
-        description: values.description,
+        description: values.description?.trim() || DEFAULT_DESCRIPTION,
         amount: values.amount,
         type: 'EXCHANGE',
         date: values.date,
@@ -237,7 +257,7 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
   }
 
   return (
-    <Modal title="Novo câmbio" onClose={onClose} maxWidthClassName="max-w-lg">
+    <Modal title={transaction ? 'Editar câmbio' : 'Novo câmbio'} onClose={onClose} maxWidthClassName="max-w-lg">
       <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
         <PickerField
           label="Conta"
@@ -426,7 +446,7 @@ export function ExchangeFormModal({ accounts, onClose, onSubmit }: ExchangeFormM
           </Button>
           <Button type="submit" isLoading={isSubmitting} disabled={accounts.length === 0}>
             <Repeat2 size={15} />
-            Converter
+            {transaction ? 'Salvar' : 'Converter'}
           </Button>
         </div>
       </form>
