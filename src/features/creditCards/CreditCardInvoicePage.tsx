@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { addDays, format, parseISO, subMonths } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, Receipt } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -26,24 +26,19 @@ export function CreditCardInvoicePage() {
   })
   const card = cardQuery.data
 
-  // The invoice window is "right after the previous closing date, up to and
-  // including this one" — closingDate itself comes from the backend (or the
-  // mock store), only periodStart is derived here.
-  const { dateFrom, dateTo } = useMemo(() => {
-    if (!card) return { dateFrom: undefined, dateTo: undefined }
-    const periodStart = subMonths(parseISO(card.closingDate), 1)
-    return { dateFrom: format(addDays(periodStart, 1), 'yyyy-MM-dd'), dateTo: card.closingDate }
-  }, [card])
-
   const referenceMonthLabel = useMemo(() => {
     if (!card) return ''
     const label = format(parseISO(card.closingDate), 'MMMM yyyy', { locale: ptBR })
     return label.charAt(0).toUpperCase() + label.slice(1)
   }, [card])
 
+  // Lists every purchase on the card, not just the still-open cycle — the
+  // "Saldo anterior" card can carry a balance from earlier, already-closed
+  // cycles, and those purchases need to show up here too (there's no
+  // persisted per-cycle invoice to scope the list to instead).
   const transactionsQuery = useQuery({
-    queryKey: ['transactions', 'invoice', uuid, dateFrom, dateTo],
-    queryFn: () => transactionsApi.list({ creditCardUuid: uuid!, type: 'EXPENSE', dateFrom, dateTo }),
+    queryKey: ['transactions', 'invoice', uuid],
+    queryFn: () => transactionsApi.list({ creditCardUuid: uuid!, type: 'EXPENSE' }),
     enabled: Boolean(uuid && card),
   })
   const transactions = transactionsQuery.data ?? []
