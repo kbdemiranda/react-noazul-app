@@ -48,9 +48,9 @@ export function CreditCardsPage() {
       {archiveMutation.isError && <ErrorBanner error={archiveMutation.error} />}
 
       {cardsQuery.isLoading && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3">
           {Array.from({ length: 2 }).map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-2xl bg-black/[.06]" />
+            <div key={index} className="h-32 animate-pulse rounded-2xl bg-ink/[.06]" />
           ))}
         </div>
       )}
@@ -66,7 +66,7 @@ export function CreditCardsPage() {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3">
         {cardsQuery.data?.map((card) => (
           <Card key={card.uuid} className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">

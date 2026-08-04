@@ -57,7 +57,7 @@ export function TransactionDetailPage() {
 
   if (!uuid) return null
   if (transactionQuery.isLoading) {
-    return <div className="h-40 animate-pulse rounded-2xl bg-black/[.06]" />
+    return <div className="h-40 animate-pulse rounded-2xl bg-ink/[.06]" />
   }
   if (transactionQuery.isError) return <ErrorBanner error={transactionQuery.error} />
 
@@ -94,7 +94,7 @@ export function TransactionDetailPage() {
           {formatCurrency(transaction.amount, transaction.fromAccountCurrency ?? undefined)}
         </p>
 
-        <dl className="flex flex-col gap-2 border-y border-black/[.08] py-3.5 text-sm">
+        <dl className="flex flex-col gap-2 border-y border-ink/[.08] py-3.5 text-sm">
           <div className="flex items-center justify-between">
             <dt className="text-ink/60">Data</dt>
             <dd className="text-ink">

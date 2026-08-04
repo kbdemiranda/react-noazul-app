@@ -53,13 +53,13 @@ export function PickerField({ label, placeholder, options, value, onChange, erro
       </button>
 
       {isOpen && (
-        <div className="glass-surface absolute top-full z-10 mt-1.5 w-full min-w-[220px] rounded-2xl bg-white/95 p-1.5 shadow-lg">
+        <div className="glass-surface absolute top-full z-10 mt-1.5 w-full min-w-[220px] rounded-2xl bg-surface/95 p-1.5 shadow-lg">
           <input
             autoFocus
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Buscar..."
-            className="mb-1 h-8 w-full rounded-xl bg-black/[.04] px-3 text-sm text-ink outline-none"
+            className="mb-1 h-8 w-full rounded-xl bg-ink/[.05] px-3 text-sm text-ink outline-none"
           />
           <div className="flex max-h-52 flex-col gap-0.5 overflow-y-auto">
             {filtered.length === 0 && <p className="px-2 py-2 text-xs text-ink/50">Nenhum resultado.</p>}
@@ -73,7 +73,7 @@ export function PickerField({ label, placeholder, options, value, onChange, erro
                     onChange(option.value)
                     setIsOpen(false)
                   }}
-                  className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm ${isSelected ? 'bg-brand-100 text-brand-700' : 'text-ink hover:bg-black/[.04]'}`}
+                  className={`flex items-center gap-2 rounded-xl px-2 py-1.5 text-left text-sm ${isSelected ? 'bg-brand-100 text-brand-700' : 'text-ink hover:bg-ink/[.05]'}`}
                 >
                   {option.leading}
                   <span className="min-w-0 flex-1">

@@ -9,9 +9,7 @@ import { useAuth } from '../context/AuthContext'
 const navItems = [
   { to: '/dashboard', label: 'Visão geral', end: true },
   { to: '/transacoes', label: 'Transações' },
-  { to: '/contas', label: 'Contas' },
   { to: '/cambio', label: 'Câmbio' },
-  { to: '/cartoes', label: 'Cartões' },
 ]
 
 export function AppLayout() {
@@ -35,7 +33,7 @@ export function AppLayout() {
                 end={item.end}
                 className={({ isActive }) =>
                   `rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                    isActive ? 'bg-brand-100 text-brand-700' : 'text-ink/70 hover:bg-black/[.05]'
+                    isActive ? 'bg-brand-100 text-brand-700' : 'text-ink/70 hover:bg-ink/[.05]'
                   }`
                 }
               >
@@ -52,7 +50,7 @@ export function AppLayout() {
               aria-label="Configurações"
               className={({ isActive }) =>
                 `flex h-8 w-8 items-center justify-center rounded-full transition-colors ${
-                  isActive ? 'bg-brand-100 text-brand-700' : 'bg-black/[.06] text-ink/70 hover:bg-black/[.1] hover:text-ink'
+                  isActive ? 'bg-brand-100 text-brand-700' : 'bg-ink/[.06] text-ink/70 hover:bg-ink/[.1] hover:text-ink'
                 }`
               }
             >
@@ -62,7 +60,7 @@ export function AppLayout() {
               type="button"
               onClick={() => logout()}
               aria-label="Sair"
-              className="flex h-8 w-8 items-center justify-center rounded-full bg-black/[.06] text-ink/70 hover:bg-black/[.1] hover:text-ink"
+              className="flex h-8 w-8 items-center justify-center rounded-full bg-ink/[.06] text-ink/70 hover:bg-ink/[.1] hover:text-ink"
             >
               <LogOut size={15} />
             </button>
@@ -72,7 +70,7 @@ export function AppLayout() {
             type="button"
             onClick={() => setIsMenuOpen(true)}
             aria-label="Menu"
-            className="ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-black/[.06] text-ink/70 md:hidden"
+            className="ml-auto flex h-9 w-9 items-center justify-center rounded-full bg-ink/[.06] text-ink/70 md:hidden"
           >
             <Menu size={18} />
           </button>
@@ -81,7 +79,7 @@ export function AppLayout() {
 
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 flex flex-col bg-page md:hidden">
-          <div className="flex items-center justify-between border-b border-black/[.08] px-5 py-4">
+          <div className="flex items-center justify-between border-b border-ink/[.08] px-5 py-4">
             <span className="flex items-center gap-2 font-heading text-base font-semibold text-ink">
               <BrandMark size={18} />
               NoAzul
@@ -90,7 +88,7 @@ export function AppLayout() {
               type="button"
               onClick={() => setIsMenuOpen(false)}
               aria-label="Fechar"
-              className="flex h-9 w-9 items-center justify-center rounded-full bg-black/[.06] text-ink/70"
+              className="flex h-9 w-9 items-center justify-center rounded-full bg-ink/[.06] text-ink/70"
             >
               <X size={18} />
             </button>
@@ -103,7 +101,7 @@ export function AppLayout() {
                 end={item.end}
                 onClick={() => setIsMenuOpen(false)}
                 className={({ isActive }) =>
-                  `border-b border-black/[.08] px-5 py-3.5 text-[15px] ${isActive ? 'text-brand-700' : 'text-ink'}`
+                  `border-b border-ink/[.08] px-5 py-3.5 text-[15px] ${isActive ? 'text-brand-700' : 'text-ink'}`
                 }
               >
                 {item.label}
@@ -122,7 +120,7 @@ export function AppLayout() {
                 aria-label="Configurações"
                 className={({ isActive }) =>
                   `flex h-8 w-8 items-center justify-center rounded-full ${
-                    isActive ? 'bg-brand-100 text-brand-700' : 'text-ink/70 hover:bg-black/[.06]'
+                    isActive ? 'bg-brand-100 text-brand-700' : 'text-ink/70 hover:bg-ink/[.06]'
                   }`
                 }
               >

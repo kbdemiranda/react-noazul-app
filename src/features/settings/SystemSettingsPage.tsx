@@ -8,6 +8,7 @@ import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
 import { SegmentedControl } from '../../components/SegmentedControl'
 import { useAuth } from '../../context/AuthContext'
+import { useTheme } from '../../context/ThemeContext'
 import type { Currency, Theme } from '../../types/domain'
 
 const themeOptions: { value: Theme; label: string }[] = [
@@ -26,9 +27,9 @@ const currencyOptions: { value: Currency; label: string }[] = [
 
 export function SystemSettingsPage() {
   const { user, refreshProfile, logout } = useAuth()
+  const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
 
-  const [theme, setTheme] = useState<Theme>(user?.theme ?? 'SYSTEM')
   const [defaultCurrency, setDefaultCurrency] = useState<Currency>(user?.defaultCurrency ?? 'BRL')
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? true)
   const [preferencesError, setPreferencesError] = useState<unknown>(null)
@@ -99,7 +100,7 @@ export function SystemSettingsPage() {
             <input
               id="emailNotifications"
               type="checkbox"
-              className="h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full bg-black/[.15] transition-colors checked:bg-brand-500 relative before:absolute before:top-0.5 before:left-0.5 before:h-4 before:w-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
+              className="h-5 w-9 shrink-0 cursor-pointer appearance-none rounded-full bg-ink/[.15] transition-colors checked:bg-brand-500 relative before:absolute before:top-0.5 before:left-0.5 before:h-4 before:w-4 before:rounded-full before:bg-white before:transition-transform checked:before:translate-x-4"
               checked={emailNotificationsEnabled}
               onChange={(event) => setEmailNotificationsEnabled(event.target.checked)}
             />

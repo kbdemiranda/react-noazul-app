@@ -242,7 +242,7 @@ export function TransactionsPage() {
       {transactionsQuery.isLoading && (
         <div className="flex flex-col gap-2">
           {Array.from({ length: 4 }).map((_, index) => (
-            <div key={index} className="h-14 animate-pulse rounded-2xl bg-black/[.06]" />
+            <div key={index} className="h-14 animate-pulse rounded-2xl bg-ink/[.06]" />
           ))}
         </div>
       )}
@@ -285,7 +285,7 @@ export function TransactionsPage() {
           <div className="glass-surface hidden overflow-hidden rounded-2xl shadow-sm lg:block">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-black/[.08] text-left text-[11px] tracking-wide text-ink/60 uppercase">
+                <tr className="border-b border-ink/[.08] text-left text-[11px] tracking-wide text-ink/60 uppercase">
                   <th className="px-4 py-2.5 font-medium">Descrição</th>
                   <th className="px-4 py-2.5 font-medium">Categoria</th>
                   <th className="px-4 py-2.5 font-medium">Conta / Cartão</th>
@@ -303,7 +303,7 @@ export function TransactionsPage() {
                   return (
                     <tr
                       key={transaction.uuid}
-                      className="cursor-pointer border-b border-black/[.06] last:border-b-0 hover:bg-black/[.03]"
+                      className="cursor-pointer border-b border-ink/[.06] last:border-b-0 hover:bg-ink/[.03]"
                       onClick={() => navigate(`/transacoes/${transaction.uuid}`)}
                     >
                       <td className="px-4 py-2.5">{transaction.description}</td>

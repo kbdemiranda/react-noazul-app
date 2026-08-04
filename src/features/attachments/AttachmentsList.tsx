@@ -71,7 +71,7 @@ export function AttachmentsList({ transactionUuid }: { transactionUuid: string }
         {attachmentsQuery.data?.map((attachment) => (
           <li
             key={attachment.uuid}
-            className="flex items-center gap-2.5 border-b border-black/[.06] py-2.5 last:border-b-0"
+            className="flex items-center gap-2.5 border-b border-ink/[.06] py-2.5 last:border-b-0"
           >
             <FileText size={16} className="flex-none text-ink/50" />
             <div className="min-w-0 flex-1 text-[12.5px]">
@@ -81,7 +81,7 @@ export function AttachmentsList({ transactionUuid }: { transactionUuid: string }
             <button
               type="button"
               aria-label={`Baixar ${attachment.fileName}`}
-              className="rounded-full p-1.5 text-ink/60 hover:bg-black/[.06] disabled:opacity-50"
+              className="rounded-full p-1.5 text-ink/60 hover:bg-ink/[.06] disabled:opacity-50"
               disabled={downloadingUuid === attachment.uuid}
               onClick={() => handleDownload(attachment.uuid, attachment.fileName)}
             >

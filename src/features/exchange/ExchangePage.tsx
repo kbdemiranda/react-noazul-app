@@ -55,7 +55,7 @@ export function ExchangePage() {
       {accountsQuery.isLoading && (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 2 }).map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-2xl bg-black/[.06]" />
+            <div key={index} className="h-32 animate-pulse rounded-2xl bg-ink/[.06]" />
           ))}
         </div>
       )}
@@ -68,7 +68,7 @@ export function ExchangePage() {
             Câmbio só existe entre saldos da mesma conta. Adicione uma segunda moeda a uma conta (ex: Wise, Revolut)
             para começar a converter entre elas.
           </p>
-          <Link to="/contas">
+          <Link to="/configuracoes/contas">
             <Button className="mt-1">Ir para Contas</Button>
           </Link>
         </Card>

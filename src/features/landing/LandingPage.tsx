@@ -127,7 +127,7 @@ export function LandingPage() {
               ].map((account) => (
                 <div
                   key={account.name}
-                  className="flex items-center justify-between rounded-2xl bg-black/[.03] px-4 py-3"
+                  className="flex items-center justify-between rounded-2xl bg-ink/[.03] px-4 py-3"
                 >
                   <span className="text-sm font-medium text-ink/80">{account.name}</span>
                   <span className="font-data text-sm font-semibold text-ink">{account.value}</span>

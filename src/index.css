@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --font-heading: "Funnel Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-body: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -20,6 +22,11 @@
   --color-surface: #f5f5f7;
   --color-page: #ffffff;
   --color-divider: rgba(0, 0, 0, 0.08);
+  /* Elevated chip/thumb resting on top of a surface — e.g. the selected
+     segment of a SegmentedControl. Needs its own token because in light
+     mode it matches the page (white-on-white, popped by shadow alone) but
+     in dark mode it must be visibly lighter than the surface behind it. */
+  --color-raised: #ffffff;
 
   /* Semantic — reserved exclusively for expense/income everywhere in the
      product, no exceptions. Each role has an AA-safe text/icon shade and a
@@ -47,6 +54,24 @@
   --shadow-brand: 0 6px 16px rgba(10, 132, 255, 0.3);
 }
 
+/* Dark mode palette — matches the NoAzul dark screens designed in Pencil
+   (NoAzul.pen): near-black page, translucent slate cards, brightened
+   semantic accents for AA contrast on dark backgrounds. Toggled by adding
+   .dark to <html> (see ThemeContext). */
+.dark {
+  --color-ink: #f5f7fa;
+  --color-surface: #171b24;
+  --color-page: #0b0d12;
+  --color-divider: rgba(255, 255, 255, 0.07);
+  --color-raised: #2a303c;
+
+  --color-income: var(--color-income-vivid);
+  --color-expense: #ff6b74;
+  --color-alert: var(--color-alert-vivid);
+  --color-violet: var(--color-violet-vivid);
+  --color-indigo: var(--color-indigo-vivid);
+}
+
 @layer base {
   body {
     margin: 0;
@@ -69,6 +94,10 @@
     border: 1px solid rgba(255, 255, 255, 0.7);
     backdrop-filter: blur(20px) saturate(180%);
     -webkit-backdrop-filter: blur(20px) saturate(180%);
+  }
+  .dark .glass-surface {
+    background: rgba(23, 27, 36, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.08);
   }
 }
 

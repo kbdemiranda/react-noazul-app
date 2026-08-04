@@ -323,7 +323,7 @@ export function TransactionFormModal({
       </p>
 
       <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
-        <div className="flex rounded-full bg-black/[.06] p-1">
+        <div className="flex rounded-full bg-ink/[.06] p-1">
           {TYPE_OPTIONS.map((option) => {
             const checked = option.value === selectedType
             return (
@@ -332,7 +332,7 @@ export function TransactionFormModal({
                 type="button"
                 onClick={() => setValue('type', option.value, { shouldValidate: true })}
                 className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                  checked ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+                  checked ? 'bg-raised text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
                 }`}
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${option.dot}`} />
@@ -488,7 +488,7 @@ export function TransactionFormModal({
           <div className="flex flex-col gap-3 rounded-2xl bg-surface p-3">
             <p className="text-[11px] text-ink/50">Recorrência e parcelamento ainda não são salvos — em breve.</p>
 
-            <div className="flex rounded-full bg-black/[.06] p-1">
+            <div className="flex rounded-full bg-ink/[.06] p-1">
               {(
                 [
                   { value: 'installment', label: 'Parcelamento' },
@@ -500,7 +500,7 @@ export function TransactionFormModal({
                   type="button"
                   onClick={() => setRepeatMode(option.value)}
                   className={`flex flex-1 items-center justify-center rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                    repeatMode === option.value ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+                    repeatMode === option.value ? 'bg-raised text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
                   }`}
                 >
                   {option.label}
@@ -512,7 +512,7 @@ export function TransactionFormModal({
               <div className="flex items-end gap-3">
                 <div className="flex flex-col gap-1.5">
                   <span className="text-[11px] font-semibold text-ink/60">Parcelas</span>
-                  <div className="flex h-9 items-center gap-2.5 rounded-xl bg-white px-2.5">
+                  <div className="flex h-9 items-center gap-2.5 rounded-xl bg-raised px-2.5">
                     <button
                       type="button"
                       onClick={() => setInstallments((n) => Math.max(2, n - 1))}
@@ -535,7 +535,7 @@ export function TransactionFormModal({
                   <select
                     value={installmentInterval}
                     onChange={(event) => setInstallmentInterval(event.target.value as 'Semanas' | 'Meses')}
-                    className="h-9 rounded-xl bg-white px-2.5 text-sm text-ink outline-none"
+                    className="h-9 rounded-xl bg-raised px-2.5 text-sm text-ink outline-none"
                   >
                     <option value="Meses">Meses</option>
                     <option value="Semanas">Semanas</option>
@@ -555,7 +555,7 @@ export function TransactionFormModal({
                   <select
                     value={recurrenceFrequency}
                     onChange={(event) => setRecurrenceFrequency(event.target.value as 'Semanal' | 'Mensal' | 'Anual')}
-                    className="h-9 rounded-xl bg-white px-2.5 text-sm text-ink outline-none"
+                    className="h-9 rounded-xl bg-raised px-2.5 text-sm text-ink outline-none"
                   >
                     <option value="Semanal">Semanal</option>
                     <option value="Mensal">Mensal</option>
@@ -603,7 +603,7 @@ export function TransactionFormModal({
                   {pendingAttachments.map((file, index) => (
                     <li
                       key={`${file.name}-${index}`}
-                      className="flex items-center gap-2.5 border-b border-black/[.06] py-2 last:border-b-0"
+                      className="flex items-center gap-2.5 border-b border-ink/[.06] py-2 last:border-b-0"
                     >
                       <FileText size={16} className="flex-none text-ink/50" />
                       <div className="min-w-0 flex-1 text-[12.5px]">

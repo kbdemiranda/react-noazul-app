@@ -390,8 +390,8 @@ export function ExchangeFormModal({ accounts, transaction, onClose, onSubmit }: 
             className="flex flex-col items-center gap-1.5"
           >
             <span
-              className={`flex h-9 w-9 items-center justify-center rounded-full border border-black/[.06] ${
-                showDescription ? 'bg-brand-100 text-brand-600' : 'bg-white text-ink/60'
+              className={`flex h-9 w-9 items-center justify-center rounded-full border border-divider ${
+                showDescription ? 'bg-brand-100 text-brand-600' : 'bg-raised text-ink/60'
               }`}
             >
               <FileText size={16} />
@@ -402,8 +402,8 @@ export function ExchangeFormModal({ accounts, transaction, onClose, onSubmit }: 
           </button>
           <button type="button" onClick={() => setShowNote((v) => !v)} className="flex flex-col items-center gap-1.5">
             <span
-              className={`flex h-9 w-9 items-center justify-center rounded-full border border-black/[.06] ${
-                showNote ? 'bg-brand-100 text-brand-600' : 'bg-white text-ink/60'
+              className={`flex h-9 w-9 items-center justify-center rounded-full border border-divider ${
+                showNote ? 'bg-brand-100 text-brand-600' : 'bg-raised text-ink/60'
               }`}
             >
               <MessageSquare size={16} />

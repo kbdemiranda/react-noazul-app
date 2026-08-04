@@ -69,9 +69,9 @@ export function AccountsPage() {
       {removeBalanceMutation.isError && <ErrorBanner error={removeBalanceMutation.error} />}
 
       {accountsQuery.isLoading && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3">
           {Array.from({ length: 3 }).map((_, index) => (
-            <div key={index} className="h-32 animate-pulse rounded-2xl bg-black/[.06]" />
+            <div key={index} className="h-32 animate-pulse rounded-2xl bg-ink/[.06]" />
           ))}
         </div>
       )}
@@ -89,7 +89,7 @@ export function AccountsPage() {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(20rem,1fr))] gap-3">
         {accountsQuery.data?.map((account) => {
           return (
             <Card key={account.uuid} className="flex flex-col gap-3">
@@ -123,7 +123,7 @@ export function AccountsPage() {
                           aria-label={`Remover ${balance.currency}`}
                           title={removeTitle}
                           disabled={!canRemove || removeBalanceMutation.isPending}
-                          className="rounded-full p-0.5 text-ink/35 transition-colors hover:bg-black/[.06] hover:text-ink/70 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                          className="rounded-full p-0.5 text-ink/35 transition-colors hover:bg-ink/[.06] hover:text-ink/70 disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                           onClick={() =>
                             removeBalanceMutation.mutate({ uuid: account.uuid, balanceUuid: balance.uuid })
                           }

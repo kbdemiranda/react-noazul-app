@@ -130,12 +130,12 @@ export function DashboardPage() {
       {isLoading && (
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="flex flex-col gap-4">
-            <div className="h-56 animate-pulse rounded-2xl bg-black/[.06]" />
-            <div className="h-40 animate-pulse rounded-2xl bg-black/[.06]" />
+            <div className="h-56 animate-pulse rounded-2xl bg-ink/[.06]" />
+            <div className="h-40 animate-pulse rounded-2xl bg-ink/[.06]" />
           </div>
           <div className="flex flex-col gap-4">
-            <div className="h-56 animate-pulse rounded-2xl bg-black/[.06]" />
-            <div className="h-40 animate-pulse rounded-2xl bg-black/[.06]" />
+            <div className="h-56 animate-pulse rounded-2xl bg-ink/[.06]" />
+            <div className="h-40 animate-pulse rounded-2xl bg-ink/[.06]" />
           </div>
         </div>
       )}
@@ -168,12 +168,12 @@ export function DashboardPage() {
                   type="button"
                   aria-label="Mostrar/ocultar saldo"
                   onClick={() => setHideSaldo((v) => !v)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink/45 hover:bg-black/[.05]"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink/45 hover:bg-ink/[.05]"
                 >
                   {hideSaldo ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <div className="mb-4 h-px bg-black/[.06]" />
+              <div className="mb-4 h-px bg-ink/[.06]" />
               <h2 className="mb-3 font-heading text-[17px] font-semibold text-ink">Minhas contas</h2>
               {accounts.length === 0 ? (
                 <p className="py-2 text-[13px] text-ink/55">Nenhuma conta cadastrada ainda.</p>
@@ -182,7 +182,7 @@ export function DashboardPage() {
                   {accounts.map((account) => (
                     <li
                       key={account.uuid}
-                      className="flex items-center gap-3 border-b border-black/[.06] py-2.5 last:border-b-0"
+                      className="flex items-center gap-3 border-b border-ink/[.06] py-2.5 last:border-b-0"
                     >
                       <BankLogo name={account.bankName} size={36} />
                       <div className="min-w-0 flex-1">
@@ -203,7 +203,7 @@ export function DashboardPage() {
                   ))}
                 </ul>
               )}
-              <Link to="/contas">
+              <Link to="/configuracoes/contas">
                 <Button variant="secondary" className="mt-3.5 w-full">
                   Gerenciar contas
                 </Button>
@@ -231,7 +231,7 @@ export function DashboardPage() {
                       <li key={transaction.uuid}>
                         <Link
                           to={`/transacoes/${transaction.uuid}`}
-                          className="flex items-center gap-3 border-b border-black/[.06] py-2.5 last:border-b-0 hover:opacity-80"
+                          className="flex items-center gap-3 border-b border-ink/[.06] py-2.5 last:border-b-0 hover:opacity-80"
                         >
                           <CategoryIconBadge name={transaction.categoryName ?? 'Câmbio'} type={transaction.type} />
                           <div className="min-w-0 flex-1">
@@ -267,15 +267,15 @@ export function DashboardPage() {
                   type="button"
                   aria-label="Mostrar/ocultar faturas"
                   onClick={() => setHideFaturas((v) => !v)}
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink/45 hover:bg-black/[.05]"
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-ink/45 hover:bg-ink/[.05]"
                 >
                   {hideFaturas ? <EyeOff size={16} /> : <Eye size={16} />}
                 </button>
               </div>
-              <div className="mb-4 h-px bg-black/[.06]" />
+              <div className="mb-4 h-px bg-ink/[.06]" />
               <div className="mb-3 flex items-center justify-between">
                 <h2 className="font-heading text-[17px] font-semibold text-ink">Meus cartões</h2>
-                <Link to="/cartoes" className="text-sm font-medium text-brand-500 hover:text-brand-700">
+                <Link to="/configuracoes/cartoes" className="text-sm font-medium text-brand-500 hover:text-brand-700">
                   Ver todos
                 </Link>
               </div>
@@ -284,20 +284,20 @@ export function DashboardPage() {
               ) : (
                 <div className="flex flex-col gap-3">
                   {cardInvoices.map(({ card, total, availableLimit, dueDate }) => (
-                    <div key={card.uuid} className="rounded-2xl bg-black/[.04] p-3.5">
+                    <div key={card.uuid} className="rounded-2xl bg-ink/[.04] p-3.5">
                       <div className="mb-3 flex items-center gap-2.5">
                         <BankLogo name={card.issuer} size={36} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14.5px] font-semibold text-ink">{card.name}</p>
                           <p className="mt-0.5 text-xs text-ink/60">Cartão manual</p>
                         </div>
-                        <Link to="/cartoes">
+                        <Link to="/configuracoes/cartoes">
                           <Button variant="secondary" className="px-3.5 py-1.5 text-xs">
                             Ver fatura
                           </Button>
                         </Link>
                       </div>
-                      <div className="flex gap-2.5 rounded-xl bg-white/70 p-3">
+                      <div className="flex gap-2.5 rounded-xl bg-raised/70 p-3">
                         <div className="min-w-0 flex-1">
                           <p className="mb-0.5 text-[11px] text-ink/60">Limite disponível</p>
                           <p className="text-sm font-semibold tabular-nums text-ink">{formatCurrency(availableLimit)}</p>
@@ -313,7 +313,7 @@ export function DashboardPage() {
                   ))}
                 </div>
               )}
-              <Link to="/cartoes">
+              <Link to="/configuracoes/cartoes">
                 <Button variant="secondary" className="mt-3.5 w-full">
                   Gerenciar cartões
                 </Button>

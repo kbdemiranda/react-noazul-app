@@ -70,7 +70,7 @@ export function TimeField({ label, hint, value, onChange, error }: TimeFieldProp
       </div>
 
       {isOpen && (
-        <div className="glass-surface absolute top-full z-10 mt-1.5 w-full min-w-[150px] rounded-2xl bg-white/95 p-2 shadow-lg">
+        <div className="glass-surface absolute top-full z-10 mt-1.5 w-full min-w-[150px] rounded-2xl bg-surface/95 p-2 shadow-lg">
           <div className="flex gap-1.5">
             <div className="flex max-h-40 flex-1 flex-col gap-0.5 overflow-y-auto">
               {HOURS.map((h) => (
@@ -79,7 +79,7 @@ export function TimeField({ label, hint, value, onChange, error }: TimeFieldProp
                   type="button"
                   onClick={() => onChange(`${h}:${minute ?? '00'}`)}
                   className={`rounded-lg py-1 text-center font-data text-sm ${
-                    h === hour ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink hover:bg-black/[.04]'
+                    h === hour ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink hover:bg-ink/[.05]'
                   }`}
                 >
                   {h}
@@ -93,7 +93,7 @@ export function TimeField({ label, hint, value, onChange, error }: TimeFieldProp
                   type="button"
                   onClick={() => onChange(`${hour ?? '00'}:${m}`)}
                   className={`rounded-lg py-1 text-center font-data text-sm ${
-                    m === minute ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink hover:bg-black/[.04]'
+                    m === minute ? 'bg-brand-100 font-semibold text-brand-700' : 'text-ink hover:bg-ink/[.05]'
                   }`}
                 >
                   {m}

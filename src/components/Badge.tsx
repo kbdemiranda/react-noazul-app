@@ -4,7 +4,7 @@ import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
 type BadgeVariant = 'neutral' | 'outline' | 'income' | 'expense'
 
 const variantClasses: Record<BadgeVariant, string> = {
-  neutral: 'bg-black/[.05] text-ink/70',
+  neutral: 'bg-ink/[.05] text-ink/70',
   outline: 'border border-brand-500 text-brand-500',
   income: 'bg-income-vivid/12 text-income',
   expense: 'bg-expense-vivid/12 text-expense',

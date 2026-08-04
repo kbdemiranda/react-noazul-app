@@ -55,7 +55,7 @@ export function CategoriesPage() {
   const renderRow = (category: Category, indented: boolean) => (
     <div
       key={category.uuid}
-      className={`flex items-center gap-2.5 border-b border-black/[.06] px-3.5 py-2.5 last:border-b-0 ${
+      className={`flex items-center gap-2.5 border-b border-ink/[.06] px-3.5 py-2.5 last:border-b-0 ${
         indented ? 'pl-8' : ''
       }`}
     >
@@ -99,8 +99,8 @@ export function CategoriesPage() {
 
       {categoriesQuery.isLoading && (
         <div className="grid gap-4 lg:grid-cols-2">
-          <div className="h-64 animate-pulse rounded-2xl bg-black/[.06]" />
-          <div className="h-64 animate-pulse rounded-2xl bg-black/[.06]" />
+          <div className="h-64 animate-pulse rounded-2xl bg-ink/[.06]" />
+          <div className="h-64 animate-pulse rounded-2xl bg-ink/[.06]" />
         </div>
       )}
 

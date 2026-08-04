@@ -173,14 +173,14 @@ export function BankImportPage() {
         <Card className="flex flex-col gap-4">
           <div>
             <CardKicker>Tipo de arquivo</CardKicker>
-            <div className="mt-2 flex rounded-full bg-black/[.06] p-1">
+            <div className="mt-2 flex rounded-full bg-ink/[.06] p-1">
               {TARGET_OPTIONS.map((option) => (
                 <button
                   key={option.value}
                   type="button"
                   onClick={() => setTargetType(option.value)}
                   className={`flex flex-1 items-center justify-center gap-1.5 rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                    targetType === option.value ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+                    targetType === option.value ? 'bg-raised text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
                   }`}
                 >
                   {option.value === 'ACCOUNT_BALANCE' ? <Landmark size={14} /> : <CreditCardIcon size={14} />}

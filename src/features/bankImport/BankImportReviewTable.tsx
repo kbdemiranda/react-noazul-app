@@ -95,7 +95,7 @@ export function BankImportReviewTable({ lines, categories, currency, onChange }:
             <div
               key={`${line.externalRef}-${index}`}
               className={`flex flex-col gap-2.5 rounded-2xl border p-3 sm:flex-row sm:items-center ${
-                line.likelyDuplicate ? 'border-alert-vivid/40 bg-alert-vivid/8' : 'border-divider bg-white'
+                line.likelyDuplicate ? 'border-alert-vivid/40 bg-alert-vivid/8' : 'border-divider bg-surface'
               }`}
             >
               <input

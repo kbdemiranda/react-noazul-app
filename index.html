@@ -11,6 +11,13 @@
       rel="stylesheet"
     />
     <title>NoAzul</title>
+    <script>
+      (function () {
+        var stored = localStorage.getItem('noazul.theme');
+        var isDark = stored === 'DARK' || ((stored === 'SYSTEM' || !stored) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (isDark) document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

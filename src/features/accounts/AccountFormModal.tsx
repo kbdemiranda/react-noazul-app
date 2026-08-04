@@ -119,7 +119,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
               <span id="currencies-label" className="text-[13px] font-semibold text-ink">
                 Moedas
               </span>
-              <div role="group" aria-labelledby="currencies-label" className="inline-flex flex-wrap gap-1 rounded-full bg-black/[.06] p-1">
+              <div role="group" aria-labelledby="currencies-label" className="inline-flex flex-wrap gap-1 rounded-full bg-ink/[.06] p-1">
                 {CURRENCIES.map((currency) => {
                   const active = selectedCurrencies.includes(currency)
                   return (
@@ -129,7 +129,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
                       aria-pressed={active}
                       onClick={() => toggleCurrency(currency)}
                       className={`rounded-full px-3 py-1.5 text-[13px] font-medium transition-colors ${
-                        active ? 'bg-white text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
+                        active ? 'bg-raised text-ink shadow-sm' : 'text-ink/60 hover:text-ink'
                       }`}
                     >
                       {currency}

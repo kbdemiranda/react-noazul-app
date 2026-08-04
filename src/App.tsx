@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { BackgroundOrbs } from './components/BackgroundOrbs'
 import { AuthProvider } from './context/AuthContext'
+import { ThemeProvider } from './context/ThemeContext'
 import { LoginPage } from './features/auth/LoginPage'
 import { SignupPage } from './features/auth/SignupPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
@@ -35,42 +36,46 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <BackgroundOrbs />
-          <div className="relative z-10">
-            <Routes>
-              <Route path="/" element={<LandingPage />} />
-              <Route path="/login" element={<LoginPage />} />
-              <Route path="/signup" element={<SignupPage />} />
+          <ThemeProvider>
+            <BackgroundOrbs />
+            <div className="relative z-10">
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<LoginPage />} />
+                <Route path="/signup" element={<SignupPage />} />
 
-              <Route element={<ProtectedRoute />}>
-                <Route path="/onboarding" element={<OnboardingPage />} />
+                <Route element={<ProtectedRoute />}>
+                  <Route path="/onboarding" element={<OnboardingPage />} />
 
-                <Route element={<AppLayout />}>
-                  <Route path="/dashboard" element={<DashboardPage />} />
-                  <Route path="/transacoes" element={<TransactionsPage />} />
-                  <Route path="/transacoes/:uuid" element={<TransactionDetailPage />} />
-                  <Route path="/contas" element={<AccountsPage />} />
-                  <Route path="/cambio" element={<ExchangePage />} />
-                  <Route path="/cartoes" element={<CreditCardsPage />} />
+                  <Route element={<AppLayout />}>
+                    <Route path="/dashboard" element={<DashboardPage />} />
+                    <Route path="/transacoes" element={<TransactionsPage />} />
+                    <Route path="/transacoes/:uuid" element={<TransactionDetailPage />} />
+                    <Route path="/cambio" element={<ExchangePage />} />
 
-                  <Route path="/configuracoes" element={<SettingsLayout />}>
-                    <Route index element={<Navigate to="perfil" replace />} />
-                    <Route path="perfil" element={<ProfileSettingsPage />} />
-                    <Route path="senhas" element={<PasswordSettingsPage />} />
-                    <Route path="categorias" element={<CategoriesPage />} />
-                    <Route path="importacao" element={<BankImportPage />} />
-                    <Route path="sistema" element={<SystemSettingsPage />} />
+                    <Route path="/configuracoes" element={<SettingsLayout />}>
+                      <Route index element={<Navigate to="perfil" replace />} />
+                      <Route path="perfil" element={<ProfileSettingsPage />} />
+                      <Route path="senhas" element={<PasswordSettingsPage />} />
+                      <Route path="contas" element={<AccountsPage />} />
+                      <Route path="cartoes" element={<CreditCardsPage />} />
+                      <Route path="categorias" element={<CategoriesPage />} />
+                      <Route path="importacao" element={<BankImportPage />} />
+                      <Route path="sistema" element={<SystemSettingsPage />} />
+                    </Route>
                   </Route>
                 </Route>
-              </Route>
 
-              <Route path="/perfil" element={<Navigate to="/configuracoes/perfil" replace />} />
-              <Route path="/categorias" element={<Navigate to="/configuracoes/categorias" replace />} />
-              <Route path="/importacao-bancaria" element={<Navigate to="/configuracoes/importacao" replace />} />
+                <Route path="/perfil" element={<Navigate to="/configuracoes/perfil" replace />} />
+                <Route path="/contas" element={<Navigate to="/configuracoes/contas" replace />} />
+                <Route path="/cartoes" element={<Navigate to="/configuracoes/cartoes" replace />} />
+                <Route path="/categorias" element={<Navigate to="/configuracoes/categorias" replace />} />
+                <Route path="/importacao-bancaria" element={<Navigate to="/configuracoes/importacao" replace />} />
 
-              <Route path="*" element={<Navigate to="/" replace />} />
-            </Routes>
-          </div>
+                <Route path="*" element={<Navigate to="/" replace />} />
+              </Routes>
+            </div>
+          </ThemeProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>
