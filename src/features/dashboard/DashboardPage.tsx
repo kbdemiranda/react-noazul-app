@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { parseISO } from 'date-fns'
 import { Eye, EyeOff, Inbox, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -9,7 +10,6 @@ import { Button } from '../../components/Button'
 import { Card, CardKicker } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { BankLogo } from '../../lib/bankLogos'
-import { computeCardInvoice } from '../../lib/creditCardInvoice'
 import { CategoryIconBadge } from '../../lib/categoryIcons'
 import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate, formatFullDatePtBR, formatMonthYearPtBR, formatShortDatePtBR } from '../../lib/format'
@@ -54,9 +54,18 @@ export function DashboardPage() {
     return [...totals.entries()].map(([currency, total]) => ({ currency, total }))
   }, [accounts])
 
+  // The card itself already carries the correctly up-to-date amounts (backend-
+  // or mock-computed, factoring in any invoice payments) — no need to
+  // re-derive them from the raw transaction list here.
   const cardInvoices = useMemo(
-    () => creditCards.map((card) => ({ card, ...computeCardInvoice(card, transactions) })),
-    [creditCards, transactions],
+    () =>
+      creditCards.map((card) => ({
+        card,
+        total: card.creditLimit - card.availableLimit,
+        availableLimit: card.availableLimit,
+        dueDate: parseISO(card.dueDate),
+      })),
+    [creditCards],
   )
   const totalInvoice = useMemo(() => cardInvoices.reduce((sum, entry) => sum + entry.total, 0), [cardInvoices])
 
@@ -291,7 +300,7 @@ export function DashboardPage() {
                           <p className="truncate text-[14.5px] font-semibold text-ink">{card.name}</p>
                           <p className="mt-0.5 text-xs text-ink/60">Cartão manual</p>
                         </div>
-                        <Link to="/configuracoes/cartoes">
+                        <Link to={`/cartoes/${card.uuid}/fatura`}>
                           <Button variant="secondary" className="px-3.5 py-1.5 text-xs">
                             Ver fatura
                           </Button>
