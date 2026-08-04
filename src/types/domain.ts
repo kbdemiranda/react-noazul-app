@@ -49,8 +49,18 @@ export interface CreditCard {
   issuer: string
   currency: Currency
   creditLimit: number
+  availableLimit: number
   closingDay: number
   dueDay: number
+  // Computed on every read (no persisted invoice) — see the backend's
+  // agent/specs/credit-card-invoice-payment/spec.md. currentInvoiceTotal is
+  // this cycle's own EXPENSE total; previousBalance is whatever's left owed
+  // from before this cycle, floored at zero; closingDate/dueDate are the
+  // concrete next occurrence of closingDay/dueDay.
+  currentInvoiceTotal: number
+  previousBalance: number
+  closingDate: string // yyyy-MM-dd
+  dueDate: string // yyyy-MM-dd
 }
 
 export interface Category {
@@ -81,6 +91,10 @@ export interface Transaction {
   toAccountBalanceUuid: string | null
   toAccountName: string | null
   toAccountCurrency: Currency | null
+  // Only for a TRANSFER paying down a credit card instead of moving money to
+  // another account — mutually exclusive with toAccountBalanceUuid.
+  toCreditCardUuid: string | null
+  toCreditCardName: string | null
   // Only set for EXCHANGE — the amount credited to toAccountBalanceUuid, in
   // its own currency (amount is debited from fromAccountBalanceUuid, in its
   // currency).

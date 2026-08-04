@@ -1,3 +1,4 @@
+import { addMonths, getDaysInMonth, isAfter, setDate, subMonths } from 'date-fns'
 import type { Account, AccountBalance, Attachment, AuthTokens, Category, CreditCard, Transaction, User } from '../types/domain'
 import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload } from './accounts'
 import type { CreditCardPayload } from './creditCards'
@@ -91,12 +92,23 @@ function findBalance(balanceUuid: string | null | undefined): AccountBalance | u
   return findAccountAndBalance(balanceUuid)?.balance
 }
 
+function findCreditCard(cardUuid: string | null | undefined): CreditCard | undefined {
+  if (!cardUuid) return undefined
+  return creditCards.find((c) => c.uuid === cardUuid)
+}
+
+/** Mirrors the backend's apply_transaction_balance_effect trigger (infra-database-noazul V16/V20). */
 function adjustAccountBalance(transaction: Transaction, sign: 1 | -1): void {
   if (transaction.type === 'TRANSFER') {
     const from = findBalance(transaction.fromAccountBalanceUuid)
-    const to = findBalance(transaction.toAccountBalanceUuid)
     if (from) from.balance -= transaction.amount * sign
-    if (to) to.balance += transaction.amount * sign
+    const toAccount = findBalance(transaction.toAccountBalanceUuid)
+    if (toAccount) {
+      toAccount.balance += transaction.amount * sign
+      return
+    }
+    const toCard = findCreditCard(transaction.toCreditCardUuid)
+    if (toCard) toCard.availableLimit += transaction.amount * sign
     return
   }
   if (transaction.type === 'EXCHANGE') {
@@ -106,10 +118,54 @@ function adjustAccountBalance(transaction: Transaction, sign: 1 | -1): void {
     if (to && transaction.convertedAmount != null) to.balance += transaction.convertedAmount * sign
     return
   }
-  const balance = findBalance(transaction.fromAccountBalanceUuid)
-  if (!balance) return
   const delta = transaction.type === 'EXPENSE' ? -transaction.amount : transaction.amount
-  balance.balance += delta * sign
+  const balance = findBalance(transaction.fromAccountBalanceUuid)
+  if (balance) {
+    balance.balance += delta * sign
+    return
+  }
+  const card = findCreditCard(transaction.fromCreditCardUuid)
+  if (card) card.availableLimit += delta * sign
+}
+
+function clampDay(month: Date, day: number): Date {
+  return setDate(month, Math.min(day, getDaysInMonth(month)))
+}
+
+function closingDateOnOrAfter(reference: Date, closingDay: number): Date {
+  const thisMonthClosing = clampDay(reference, closingDay)
+  return isAfter(reference, thisMonthClosing) ? clampDay(addMonths(reference, 1), closingDay) : thisMonthClosing
+}
+
+function toIsoDate(date: Date): string {
+  return date.toISOString().slice(0, 10)
+}
+
+/** Mirrors the backend's CreditCardService.computeInvoiceSummary. */
+function computeInvoiceSummary(
+  card: CreditCard,
+  referenceDate: Date = new Date(),
+): { currentInvoiceTotal: number; previousBalance: number; closingDate: string; dueDate: string } {
+  const closingDate = closingDateOnOrAfter(referenceDate, card.closingDay)
+  const periodStart = clampDay(subMonths(closingDate, 1), card.closingDay)
+  const dueDate = clampDay(closingDate, card.dueDay)
+
+  const currentInvoiceTotal = transactions
+    .filter((t) => t.fromCreditCardUuid === card.uuid && t.type === 'EXPENSE')
+    .filter((t) => {
+      const date = new Date(`${t.date}T00:00:00`)
+      return isAfter(date, periodStart) && !isAfter(date, closingDate)
+    })
+    .reduce((sum, t) => sum + t.amount, 0)
+
+  const outstandingTotal = card.creditLimit - card.availableLimit
+  const previousBalance = Math.max(0, outstandingTotal - currentInvoiceTotal)
+
+  return { currentInvoiceTotal, previousBalance, closingDate: toIsoDate(closingDate), dueDate: toIsoDate(dueDate) }
+}
+
+function withInvoiceSummary(card: CreditCard): CreditCard {
+  return { ...card, ...computeInvoiceSummary(card) }
 }
 
 export const mockAuth = {
@@ -214,21 +270,36 @@ export const mockAccounts = {
 
 export const mockCreditCards = {
   async list(): Promise<CreditCard[]> {
-    return delay([...creditCards])
+    return delay(creditCards.map(withInvoiceSummary))
   },
   async find(uuidStr: string): Promise<CreditCard> {
     const found = creditCards.find((c) => c.uuid === uuidStr)
     if (!found) throw new Error('Cartão não encontrado.')
-    return delay(found)
+    return delay(withInvoiceSummary(found))
   },
   async create(payload: CreditCardPayload): Promise<CreditCard> {
-    const card: CreditCard = { uuid: uuid(), ...payload }
+    const card: CreditCard = {
+      uuid: uuid(),
+      ...payload,
+      availableLimit: payload.creditLimit,
+      currentInvoiceTotal: 0,
+      previousBalance: 0,
+      closingDate: '',
+      dueDate: '',
+    }
     creditCards.push(card)
-    return delay(card)
+    return delay(withInvoiceSummary(card))
   },
   async update(uuidStr: string, payload: CreditCardPayload): Promise<CreditCard> {
-    creditCards = creditCards.map((c) => (c.uuid === uuidStr ? { ...c, ...payload } : c))
-    return delay(creditCards.find((c) => c.uuid === uuidStr)!)
+    // Mirrors CreditCard.update() on the backend: shifting creditLimit shifts
+    // availableLimit by the same delta, so the already-spent amount is
+    // preserved instead of reset back to "fully available".
+    creditCards = creditCards.map((c) =>
+      c.uuid === uuidStr
+        ? { ...c, ...payload, availableLimit: c.availableLimit + (payload.creditLimit - c.creditLimit) }
+        : c,
+    )
+    return delay(withInvoiceSummary(creditCards.find((c) => c.uuid === uuidStr)!))
   },
   async archive(uuidStr: string): Promise<void> {
     creditCards = creditCards.filter((c) => c.uuid !== uuidStr)
@@ -296,6 +367,7 @@ export const mockTransactions = {
       ? creditCards.find((c) => c.uuid === payload.fromCreditCardUuid)
       : undefined
     const to = findAccountAndBalance(payload.toAccountBalanceUuid)
+    const toCard = payload.toCreditCardUuid ? creditCards.find((c) => c.uuid === payload.toCreditCardUuid) : undefined
     const now = new Date().toISOString()
     const transaction: Transaction = {
       uuid: uuid(),
@@ -314,6 +386,8 @@ export const mockTransactions = {
       toAccountBalanceUuid: to?.balance.uuid ?? null,
       toAccountName: to?.account.name ?? null,
       toAccountCurrency: to?.balance.currency ?? null,
+      toCreditCardUuid: toCard?.uuid ?? null,
+      toCreditCardName: toCard?.name ?? null,
       convertedAmount: payload.convertedAmount ?? null,
       createdAt: now,
       updatedAt: now,
@@ -334,6 +408,7 @@ export const mockTransactions = {
       ? creditCards.find((c) => c.uuid === payload.fromCreditCardUuid)
       : undefined
     const to = findAccountAndBalance(payload.toAccountBalanceUuid)
+    const toCard = payload.toCreditCardUuid ? creditCards.find((c) => c.uuid === payload.toCreditCardUuid) : undefined
 
     const updated: Transaction = {
       ...previous,
@@ -352,6 +427,8 @@ export const mockTransactions = {
       toAccountBalanceUuid: to?.balance.uuid ?? null,
       toAccountName: to?.account.name ?? null,
       toAccountCurrency: to?.balance.currency ?? null,
+      toCreditCardUuid: toCard?.uuid ?? null,
+      toCreditCardName: toCard?.name ?? null,
       convertedAmount: payload.convertedAmount ?? null,
       updatedAt: new Date().toISOString(),
     }
@@ -471,6 +548,8 @@ export const mockBankImports = {
         toAccountBalanceUuid: null,
         toAccountName: null,
         toAccountCurrency: null,
+        toCreditCardUuid: null,
+        toCreditCardName: null,
         convertedAmount: null,
         createdAt: now,
         updatedAt: now,
