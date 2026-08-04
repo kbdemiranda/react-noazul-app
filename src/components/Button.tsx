@@ -1,7 +1,7 @@
 import { type ButtonHTMLAttributes } from 'react'
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'danger' | 'ghost'
+  variant?: 'primary' | 'secondary' | 'danger' | 'success' | 'ghost'
   isLoading?: boolean
 }
 
@@ -10,6 +10,9 @@ const variantClasses: Record<NonNullable<ButtonProps['variant']>, string> = {
   secondary:
     'border border-divider bg-raised font-semibold text-ink hover:bg-ink/[.05] disabled:text-ink/40',
   danger: 'bg-expense font-bold text-white hover:brightness-95 disabled:bg-expense/40',
+  // Positive/confirming actions that aren't the page's primary action — e.g.
+  // "Pagar" on a credit card invoice — distinct from `primary`'s brand blue.
+  success: 'bg-income font-bold text-white hover:brightness-95 disabled:bg-income/40',
   ghost: 'bg-transparent font-semibold text-brand-500 hover:bg-brand-100 disabled:text-brand-300',
 }
 

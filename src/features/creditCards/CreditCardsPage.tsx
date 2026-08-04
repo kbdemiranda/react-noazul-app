@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { CreditCard as CreditCardIcon, Plus } from 'lucide-react'
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import { creditCardsApi, type CreditCardPayload } from '../../api/creditCards'
 import { Badge } from '../../components/Badge'
 import { Button } from '../../components/Button'
@@ -82,6 +83,9 @@ export function CreditCardsPage() {
               <CardKicker>Limite</CardKicker>
               <p className="font-heading text-2xl tabular-nums text-ink">{formatCurrency(card.creditLimit)}</p>
             </div>
+            <Link to={`/cartoes/${card.uuid}/fatura`}>
+              <Button className="w-full">Ver fatura</Button>
+            </Link>
             <div className="flex gap-2">
               <Button variant="secondary" className="flex-1" onClick={() => setEditingCard(card)}>
                 Editar

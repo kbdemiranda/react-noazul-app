@@ -11,6 +11,7 @@ import { OnboardingPage } from './features/onboarding/OnboardingPage'
 import { AccountsPage } from './features/accounts/AccountsPage'
 import { ExchangePage } from './features/exchange/ExchangePage'
 import { CreditCardsPage } from './features/creditCards/CreditCardsPage'
+import { CreditCardInvoicePage } from './features/creditCards/CreditCardInvoicePage'
 import { TransactionsPage } from './features/transactions/TransactionsPage'
 import { TransactionDetailPage } from './features/transactions/TransactionDetailPage'
 import { BankImportPage } from './features/bankImport/BankImportPage'
@@ -52,6 +53,7 @@ function App() {
                     <Route path="/transacoes" element={<TransactionsPage />} />
                     <Route path="/transacoes/:uuid" element={<TransactionDetailPage />} />
                     <Route path="/cambio" element={<ExchangePage />} />
+                    <Route path="/cartoes/:uuid/fatura" element={<CreditCardInvoicePage />} />
 
                     <Route path="/configuracoes" element={<SettingsLayout />}>
                       <Route index element={<Navigate to="perfil" replace />} />
