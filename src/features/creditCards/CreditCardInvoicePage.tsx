@@ -69,11 +69,11 @@ export function CreditCardInvoicePage() {
   return (
     <div className="flex flex-col gap-4">
       <Link
-        to="/configuracoes/cartoes"
+        to="/dashboard"
         className="flex w-fit items-center gap-1 text-[13px] font-medium text-ink/55 hover:text-ink"
       >
         <ChevronLeft size={14} />
-        Cartões
+        Visão geral
       </Link>
 
       <div className="flex flex-wrap items-center gap-3">

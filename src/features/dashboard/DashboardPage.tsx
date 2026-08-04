@@ -189,25 +189,30 @@ export function DashboardPage() {
               ) : (
                 <ul className="flex flex-col">
                   {accounts.map((account) => (
-                    <li
-                      key={account.uuid}
-                      className="flex items-center gap-3 border-b border-ink/[.06] py-2.5 last:border-b-0"
-                    >
-                      <BankLogo name={account.bankName} size={36} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-[14.5px] font-semibold text-ink">{account.name}</p>
-                        <p className="mt-0.5 text-xs text-ink/60">Conta manual</p>
-                      </div>
-                      <div className="flex flex-col items-end gap-0.5">
-                        {account.balances.map((balance) => (
-                          <p
-                            key={balance.uuid}
-                            className="font-heading text-[14.5px] tabular-nums text-brand-500"
-                          >
-                            {formatCurrency(balance.balance, balance.currency)}
-                          </p>
-                        ))}
-                      </div>
+                    <li key={account.uuid}>
+                      {/* The transactions filter is per-balance (multi-currency accounts have one AccountBalance
+                          per currency) — this links to the account's first currency; a multi-currency account can
+                          switch currency from the Transações page's own filter afterward. */}
+                      <Link
+                        to={`/transacoes?accountBalanceUuid=${account.balances[0].uuid}`}
+                        className="flex items-center gap-3 border-b border-ink/[.06] py-2.5 last:border-b-0 hover:opacity-80"
+                      >
+                        <BankLogo name={account.bankName} size={36} />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[14.5px] font-semibold text-ink">{account.name}</p>
+                          <p className="mt-0.5 text-xs text-ink/60">Conta manual</p>
+                        </div>
+                        <div className="flex flex-col items-end gap-0.5">
+                          {account.balances.map((balance) => (
+                            <p
+                              key={balance.uuid}
+                              className="font-heading text-[14.5px] tabular-nums text-brand-500"
+                            >
+                              {formatCurrency(balance.balance, balance.currency)}
+                            </p>
+                          ))}
+                        </div>
+                      </Link>
                     </li>
                   ))}
                 </ul>

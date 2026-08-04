@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Landmark, Layers, Plus, Receipt, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts'
 import { categoriesApi } from '../../api/categories'
 import { creditCardsApi } from '../../api/creditCards'
@@ -36,16 +36,23 @@ const ALL_ACCOUNTS = ''
 export function TransactionsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
+  const [searchParams] = useSearchParams()
+  const initialAccountBalanceUuid = searchParams.get('accountBalanceUuid')
+  const initialCreditCardUuid = searchParams.get('creditCardUuid')
+  const initialAccountOrCardUuid = initialCreditCardUuid
+    ? `card:${initialCreditCardUuid}`
+    : (initialAccountBalanceUuid ?? ALL_ACCOUNTS)
+
   const [isCreating, setIsCreating] = useState(false)
   const [filter, setFilter] = useState<Filter>('ALL')
 
   const [descriptionInput, setDescriptionInput] = useState('')
   const [description, setDescription] = useState('')
   const [categoryUuid, setCategoryUuid] = useState(ALL_CATEGORIES)
-  const [accountOrCardUuid, setAccountOrCardUuid] = useState(ALL_ACCOUNTS)
+  const [accountOrCardUuid, setAccountOrCardUuid] = useState(initialAccountOrCardUuid)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [filtersOpen, setFiltersOpen] = useState(false)
+  const [filtersOpen, setFiltersOpen] = useState(initialAccountOrCardUuid !== ALL_ACCOUNTS)
 
   useEffect(() => {
     const timeout = setTimeout(() => setDescription(descriptionInput.trim()), 300)
