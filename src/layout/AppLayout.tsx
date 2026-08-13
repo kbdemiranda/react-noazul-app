@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { LogOut, Menu, Settings, X } from 'lucide-react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { Link, NavLink, Outlet } from 'react-router-dom'
 import { toApiUrl } from '../api/client'
 import { Avatar } from '../components/Avatar'
 import { BrandMark } from '../components/BrandMark'
@@ -20,10 +20,10 @@ export function AppLayout() {
     <div className="min-h-screen">
       <header className="glass-surface sticky top-0 z-20 border-x-0 border-t-0">
         <div className="mx-auto flex max-w-6xl items-center gap-2 px-4 py-3.5 md:gap-6 md:px-6">
-          <span className="flex items-center gap-2 font-heading text-base font-semibold text-ink">
+          <Link to="/dashboard" className="flex items-center gap-2 font-heading text-base font-semibold text-ink">
             <BrandMark size={20} />
             NoAzul
-          </span>
+          </Link>
 
           <nav className="hidden items-center gap-1 md:flex">
             {navItems.map((item) => (
@@ -80,10 +80,14 @@ export function AppLayout() {
       {isMenuOpen && (
         <div className="fixed inset-0 z-40 flex flex-col bg-page md:hidden">
           <div className="flex items-center justify-between border-b border-ink/[.08] px-5 py-4">
-            <span className="flex items-center gap-2 font-heading text-base font-semibold text-ink">
+            <Link
+              to="/dashboard"
+              onClick={() => setIsMenuOpen(false)}
+              className="flex items-center gap-2 font-heading text-base font-semibold text-ink"
+            >
               <BrandMark size={18} />
               NoAzul
-            </span>
+            </Link>
             <button
               type="button"
               onClick={() => setIsMenuOpen(false)}

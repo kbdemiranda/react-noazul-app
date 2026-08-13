@@ -13,6 +13,7 @@ import { BankLogo } from '../../lib/bankLogos'
 import { CategoryIconBadge } from '../../lib/categoryIcons'
 import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate, formatFullDatePtBR, formatMonthYearPtBR, formatShortDatePtBR } from '../../lib/format'
+import { accountTypeLabels } from '../../lib/labels'
 import { useAuth } from '../../context/AuthContext'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
 
@@ -200,7 +201,7 @@ export function DashboardPage() {
                         <BankLogo name={account.bankName} size={36} />
                         <div className="min-w-0 flex-1">
                           <p className="text-[14.5px] font-semibold text-ink">{account.name}</p>
-                          <p className="mt-0.5 text-xs text-ink/60">Conta manual</p>
+                          <p className="mt-0.5 text-xs text-ink/60">{accountTypeLabels[account.type]}</p>
                         </div>
                         <div className="flex flex-col items-end gap-0.5">
                           {account.balances.map((balance) => (
