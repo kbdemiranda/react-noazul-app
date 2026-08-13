@@ -62,4 +62,8 @@ export const transactionsApi = {
     if (USE_MOCKS) return mockTransactions.remove(uuid)
     await apiClient.delete(`/transactions/${uuid}`)
   },
+  async removeAll(): Promise<void> {
+    if (USE_MOCKS) return mockTransactions.removeAll()
+    await apiClient.delete('/transactions')
+  },
 }

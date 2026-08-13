@@ -447,6 +447,13 @@ export const mockTransactions = {
     attachmentsByTransaction.delete(uuidStr)
     return delay(undefined)
   },
+  async removeAll(): Promise<void> {
+    transactions.forEach((transaction) => adjustAccountBalance(transaction, -1))
+    transactions = []
+    archivedTransactionUuids.clear()
+    attachmentsByTransaction.clear()
+    return delay(undefined)
+  },
 }
 
 export const mockAttachments = {

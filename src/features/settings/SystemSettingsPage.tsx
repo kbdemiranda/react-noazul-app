@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
+import { transactionsApi } from '../../api/transactions'
 import { usersApi } from '../../api/users'
 import { Button } from '../../components/Button'
 import { Card, CardKicker } from '../../components/Card'
@@ -29,6 +31,7 @@ export function SystemSettingsPage() {
   const { user, refreshProfile, logout } = useAuth()
   const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   const [defaultCurrency, setDefaultCurrency] = useState<Currency>(user?.defaultCurrency ?? 'BRL')
   const [emailNotificationsEnabled, setEmailNotificationsEnabled] = useState(user?.emailNotificationsEnabled ?? true)
@@ -39,6 +42,9 @@ export function SystemSettingsPage() {
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false)
   const [deleteError, setDeleteError] = useState<unknown>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isConfirmingTransactionDeletion, setIsConfirmingTransactionDeletion] = useState(false)
+  const [transactionDeletionError, setTransactionDeletionError] = useState<unknown>(null)
+  const [isDeletingTransactions, setIsDeletingTransactions] = useState(false)
 
   const handleSavePreferences = async () => {
     setPreferencesError(null)
@@ -65,6 +71,24 @@ export function SystemSettingsPage() {
     } catch (error) {
       setDeleteError(error)
       setIsDeleting(false)
+    }
+  }
+
+  const handleDeleteAllTransactions = async () => {
+    setTransactionDeletionError(null)
+    setIsDeletingTransactions(true)
+    try {
+      await transactionsApi.removeAll()
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['transactions'] }),
+        queryClient.invalidateQueries({ queryKey: ['accounts'] }),
+        queryClient.invalidateQueries({ queryKey: ['credit-cards'] }),
+      ])
+      setIsConfirmingTransactionDeletion(false)
+    } catch (error) {
+      setTransactionDeletionError(error)
+    } finally {
+      setIsDeletingTransactions(false)
     }
   }
 
@@ -120,6 +144,16 @@ export function SystemSettingsPage() {
 
         <Card className="flex flex-col gap-3 border border-expense/40">
           <CardKicker className="text-expense">Zona de risco</CardKicker>
+          <div className="flex flex-col gap-2 border-b border-expense/20 pb-4">
+            <p className="text-sm font-medium text-ink">Apagar todas as transações</p>
+            <p className="text-[13px] text-ink/75">
+              Todas as suas transações e seus comprovantes serão apagados permanentemente. Esta ação é irreversível.
+            </p>
+            {Boolean(transactionDeletionError) && <ErrorBanner error={transactionDeletionError} />}
+            <Button variant="danger" onClick={() => setIsConfirmingTransactionDeletion(true)} className="w-fit">
+              Apagar todas as transações
+            </Button>
+          </div>
           <p className="text-[13px] text-ink/75">
             Excluir sua conta remove o acesso permanentemente. Esta ação não pode ser desfeita pelo usuário.
           </p>
@@ -142,6 +176,23 @@ export function SystemSettingsPage() {
             </Button>
             <Button variant="danger" isLoading={isDeleting} onClick={handleDeleteAccount}>
               Excluir permanentemente
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {isConfirmingTransactionDeletion && (
+        <Modal title="Apagar todas as transações?" onClose={() => setIsConfirmingTransactionDeletion(false)}>
+          <p className="text-sm text-ink/80">
+            Isso apagará permanentemente todas as suas transações e comprovantes. Seus saldos e limites serão
+            recalculados. Esta ação é irreversível.
+          </p>
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setIsConfirmingTransactionDeletion(false)}>
+              Cancelar
+            </Button>
+            <Button variant="danger" isLoading={isDeletingTransactions} onClick={handleDeleteAllTransactions}>
+              Apagar permanentemente
             </Button>
           </div>
         </Modal>
