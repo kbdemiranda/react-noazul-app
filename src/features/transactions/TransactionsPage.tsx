@@ -10,6 +10,7 @@ import { Button } from '../../components/Button'
 import { Card } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
+import { MultiPickerField } from '../../components/MultiPickerField'
 import { PickerField, type PickerOption } from '../../components/PickerField'
 import { SegmentedControl } from '../../components/SegmentedControl'
 import { WarningBanner } from '../../components/WarningBanner'
@@ -32,6 +33,7 @@ const filterOptions: { value: Filter; label: string }[] = [
 
 const ALL_CATEGORIES = ''
 const ALL_ACCOUNTS = ''
+const ALL_ACCOUNTS_LABEL = 'Todas as contas/cartões'
 
 export function TransactionsPage() {
   const navigate = useNavigate()
@@ -49,6 +51,7 @@ export function TransactionsPage() {
   const [descriptionInput, setDescriptionInput] = useState('')
   const [description, setDescription] = useState('')
   const [categoryUuid, setCategoryUuid] = useState(ALL_CATEGORIES)
+  const [accountOrCardUuids, setAccountOrCardUuids] = useState<string[]>([])
   const [accountOrCardUuid, setAccountOrCardUuid] = useState(initialAccountOrCardUuid)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
@@ -64,19 +67,20 @@ export function TransactionsPage() {
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
 
   const filters: TransactionFilters = useMemo(() => {
-    const [accountBalanceUuid, creditCardUuid] = accountOrCardUuid.startsWith('card:')
-      ? [undefined, accountOrCardUuid.slice('card:'.length)]
-      : [accountOrCardUuid || undefined, undefined]
+    const accountBalanceUuids = accountOrCardUuids.filter((value) => !value.startsWith('card:'))
+    const creditCardUuids = accountOrCardUuids
+      .filter((value) => value.startsWith('card:'))
+      .map((value) => value.slice('card:'.length))
     return {
       description: description || undefined,
       type: filter === 'ALL' ? undefined : filter,
       categoryUuid: categoryUuid || undefined,
-      accountBalanceUuid,
-      creditCardUuid,
+      accountBalanceUuids: accountBalanceUuids.length ? accountBalanceUuids : undefined,
+      creditCardUuids: creditCardUuids.length ? creditCardUuids : undefined,
       dateFrom: dateFrom || undefined,
       dateTo: dateTo || undefined,
     }
-  }, [description, filter, categoryUuid, accountOrCardUuid, dateFrom, dateTo])
+  }, [description, filter, categoryUuid, accountOrCardUuids, dateFrom, dateTo])
 
   const transactionsQuery = useQuery({
     queryKey: ['transactions', filters],
@@ -104,7 +108,7 @@ export function TransactionsPage() {
     () => [
       {
         value: ALL_ACCOUNTS,
-        label: 'Todas as contas/cartões',
+        label: ALL_ACCOUNTS_LABEL,
         leading: <Landmark size={16} className="text-ink/45" />,
       },
       ...(accountsQuery.data ?? []).flatMap((account) =>
@@ -125,9 +129,13 @@ export function TransactionsPage() {
     [accountsQuery.data, creditCardsQuery.data],
   )
 
-  const extraFiltersCount = [descriptionInput.trim(), categoryUuid, accountOrCardUuid, dateFrom, dateTo].filter(
-    Boolean,
-  ).length
+  const extraFiltersCount = [
+    descriptionInput.trim(),
+    categoryUuid,
+    accountOrCardUuids.length > 0,
+    dateFrom,
+    dateTo,
+  ].filter(Boolean).length
   const hasActiveFilters = filter !== 'ALL' || extraFiltersCount > 0
 
   function clearFilters() {
@@ -135,7 +143,7 @@ export function TransactionsPage() {
     setDescriptionInput('')
     setDescription('')
     setCategoryUuid(ALL_CATEGORIES)
-    setAccountOrCardUuid(ALL_ACCOUNTS)
+    setAccountOrCardUuids([])
     setDateFrom('')
     setDateTo('')
   }
@@ -214,12 +222,13 @@ export function TransactionsPage() {
             value={categoryUuid}
             onChange={setCategoryUuid}
           />
-          <PickerField
+          <MultiPickerField
             label="Conta / Cartão"
-            placeholder="Todas as contas/cartões"
+            placeholder={ALL_ACCOUNTS_LABEL}
             options={accountOrCardOptions}
-            value={accountOrCardUuid}
-            onChange={setAccountOrCardUuid}
+            allValue={ALL_ACCOUNTS}
+            values={accountOrCardUuids}
+            onChange={setAccountOrCardUuids}
           />
           <Field label="De" htmlFor="dateFrom">
             <input

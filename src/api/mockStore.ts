@@ -348,8 +348,15 @@ export const mockTransactions = {
       .filter((t) => !description || t.description.toLowerCase().includes(description))
       .filter((t) => !filters?.type || t.type === filters.type)
       .filter((t) => !filters?.categoryUuid || t.categoryUuid === filters.categoryUuid)
-      .filter((t) => !filters?.accountBalanceUuid || t.fromAccountBalanceUuid === filters.accountBalanceUuid)
-      .filter((t) => !filters?.creditCardUuid || t.fromCreditCardUuid === filters.creditCardUuid)
+      .filter((t) => {
+        const hasAccountFilter = !!filters?.accountBalanceUuids?.length
+        const hasCardFilter = !!filters?.creditCardUuids?.length
+        if (!hasAccountFilter && !hasCardFilter) return true
+        return (
+          (hasAccountFilter && filters!.accountBalanceUuids!.includes(t.fromAccountBalanceUuid ?? '')) ||
+          (hasCardFilter && filters!.creditCardUuids!.includes(t.fromCreditCardUuid ?? ''))
+        )
+      })
       .filter((t) => !filters?.dateFrom || t.date >= filters.dateFrom)
       .filter((t) => !filters?.dateTo || t.date <= filters.dateTo)
       .sort((a, b) => (a.date === b.date ? (a.time < b.time ? 1 : -1) : a.date < b.date ? 1 : -1))
