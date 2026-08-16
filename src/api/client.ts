@@ -51,6 +51,17 @@ interface RetriableRequestConfig extends InternalAxiosRequestConfig {
 let refreshPromise: Promise<AuthTokens> | null = null
 
 async function refreshTokens(): Promise<AuthTokens> {
+  // Cross-tab lock: two tabs refreshing concurrently would both send the same
+  // token, and the API treats a replayed (already-rotated) refresh token as
+  // theft, revoking every session. Under the lock the second tab re-reads
+  // storage and finds the first tab's fresh token instead.
+  if (navigator.locks) {
+    return navigator.locks.request('noazul.token-refresh', doRefreshTokens)
+  }
+  return doRefreshTokens()
+}
+
+async function doRefreshTokens(): Promise<AuthTokens> {
   const refreshToken = tokenStorage.getRefreshToken()
   if (!refreshToken) {
     throw new Error('No refresh token available')

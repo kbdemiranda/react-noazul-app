@@ -32,7 +32,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function bootstrap() {
-      if (!tokenStorage.getAccessToken()) {
+      // The access token lives only in memory, so after a reload the session's
+      // marker is the persisted refresh token; the api client's 401 interceptor
+      // rotates it into a fresh access token on the first call below.
+      if (!tokenStorage.getRefreshToken()) {
         setIsBootstrapping(false)
         return
       }
