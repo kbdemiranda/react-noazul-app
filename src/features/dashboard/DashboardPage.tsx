@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { parseISO } from 'date-fns'
 import { Eye, EyeOff, Inbox, Plus } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
@@ -11,6 +10,7 @@ import { Card, CardKicker } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { BankLogo } from '../../lib/bankLogos'
 import { CategoryIconBadge } from '../../lib/categoryIcons'
+import { getCreditCardInvoiceDates } from '../../lib/creditCardInvoice'
 import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate, formatFullDatePtBR, formatMonthYearPtBR, formatShortDatePtBR } from '../../lib/format'
 import { accountTypeLabels } from '../../lib/labels'
@@ -64,7 +64,7 @@ export function DashboardPage() {
         card,
         total: card.creditLimit - card.availableLimit,
         availableLimit: card.availableLimit,
-        dueDate: parseISO(card.dueDate),
+        dueDate: getCreditCardInvoiceDates(card).dueDate,
       })),
     [creditCards],
   )

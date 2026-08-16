@@ -51,8 +51,9 @@ export function TransactionsPage() {
   const [descriptionInput, setDescriptionInput] = useState('')
   const [description, setDescription] = useState('')
   const [categoryUuid, setCategoryUuid] = useState(ALL_CATEGORIES)
-  const [accountOrCardUuids, setAccountOrCardUuids] = useState<string[]>([])
-  const [accountOrCardUuid, setAccountOrCardUuid] = useState(initialAccountOrCardUuid)
+  const [accountOrCardUuids, setAccountOrCardUuids] = useState<string[]>(() =>
+    initialAccountOrCardUuid === ALL_ACCOUNTS ? [] : [initialAccountOrCardUuid],
+  )
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
   const [filtersOpen, setFiltersOpen] = useState(initialAccountOrCardUuid !== ALL_ACCOUNTS)

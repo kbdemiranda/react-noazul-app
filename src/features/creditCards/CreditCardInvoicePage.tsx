@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { format, parseISO } from 'date-fns'
+import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ChevronLeft, Receipt } from 'lucide-react'
 import { useMemo, useState } from 'react'
@@ -11,6 +11,7 @@ import { Card } from '../../components/Card'
 import { ErrorBanner } from '../../components/ErrorBanner'
 import { BankLogo } from '../../lib/bankLogos'
 import { CategoryIconBadge, categoryColor } from '../../lib/categoryIcons'
+import { getCreditCardInvoiceDates } from '../../lib/creditCardInvoice'
 import { formatCurrency, formatDate } from '../../lib/format'
 import { PayCreditCardInvoiceModal } from './PayCreditCardInvoiceModal'
 
@@ -28,7 +29,8 @@ export function CreditCardInvoicePage() {
 
   const referenceMonthLabel = useMemo(() => {
     if (!card) return ''
-    const label = format(parseISO(card.closingDate), 'MMMM yyyy', { locale: ptBR })
+    const { closingDate } = getCreditCardInvoiceDates(card)
+    const label = format(closingDate, 'MMMM yyyy', { locale: ptBR })
     return label.charAt(0).toUpperCase() + label.slice(1)
   }, [card])
 
@@ -38,7 +40,7 @@ export function CreditCardInvoicePage() {
   // persisted per-cycle invoice to scope the list to instead).
   const transactionsQuery = useQuery({
     queryKey: ['transactions', 'invoice', uuid],
-    queryFn: () => transactionsApi.list({ creditCardUuid: uuid!, type: 'EXPENSE' }),
+    queryFn: () => transactionsApi.list({ creditCardUuids: [uuid!], type: 'EXPENSE' }),
     enabled: Boolean(uuid && card),
   })
   const transactions = transactionsQuery.data ?? []
@@ -55,6 +57,8 @@ export function CreditCardInvoicePage() {
       </div>
     )
   }
+
+  const { closingDate, dueDate } = getCreditCardInvoiceDates(card)
 
   // The true amount currently owed, not just this cycle's gross charges — a
   // payment made within the still-open current cycle already reduced
@@ -85,11 +89,11 @@ export function CreditCardInvoicePage() {
         <Card className="flex flex-col gap-2">
           <SummaryRow label="Saldo anterior" value={formatCurrency(card.previousBalance)} valueClassName="text-expense" />
           <SummaryRow label="Referência" value={referenceMonthLabel} />
-          <SummaryRow label="Fechamento" value={formatDate(card.closingDate)} />
+          <SummaryRow label="Fechamento" value={format(closingDate, 'dd/MM/yyyy')} />
         </Card>
         <Card className="flex flex-col justify-center gap-1">
           <p className="text-[12px] font-semibold text-ink/55">Vencimento</p>
-          <p className="font-data text-xl font-bold tabular-nums text-ink">{formatDate(card.dueDate)}</p>
+          <p className="font-data text-xl font-bold tabular-nums text-ink">{format(dueDate, 'dd/MM/yyyy')}</p>
         </Card>
         <Card className="flex flex-col gap-2">
           <p className="text-[12px] font-semibold text-ink/55">Valor da fatura</p>
