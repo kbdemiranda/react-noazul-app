@@ -39,11 +39,13 @@ export function TransactionsPage() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const [searchParams] = useSearchParams()
-  const initialAccountBalanceUuid = searchParams.get('accountBalanceUuid')
   const initialCreditCardUuid = searchParams.get('creditCardUuid')
-  const initialAccountOrCardUuid = initialCreditCardUuid
-    ? `card:${initialCreditCardUuid}`
-    : (initialAccountBalanceUuid ?? ALL_ACCOUNTS)
+  const initialAccountBalanceUuids = (
+    searchParams.get('accountBalanceUuids')?.split(',') ?? [searchParams.get('accountBalanceUuid')]
+  ).filter((uuid): uuid is string => Boolean(uuid))
+  const initialAccountOrCardUuids = initialCreditCardUuid
+    ? [`card:${initialCreditCardUuid}`]
+    : initialAccountBalanceUuids
 
   const [isCreating, setIsCreating] = useState(false)
   const [filter, setFilter] = useState<Filter>('ALL')
@@ -51,12 +53,10 @@ export function TransactionsPage() {
   const [descriptionInput, setDescriptionInput] = useState('')
   const [description, setDescription] = useState('')
   const [categoryUuid, setCategoryUuid] = useState(ALL_CATEGORIES)
-  const [accountOrCardUuids, setAccountOrCardUuids] = useState<string[]>(() =>
-    initialAccountOrCardUuid === ALL_ACCOUNTS ? [] : [initialAccountOrCardUuid],
-  )
+  const [accountOrCardUuids, setAccountOrCardUuids] = useState<string[]>(initialAccountOrCardUuids)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo] = useState('')
-  const [filtersOpen, setFiltersOpen] = useState(initialAccountOrCardUuid !== ALL_ACCOUNTS)
+  const [filtersOpen, setFiltersOpen] = useState(initialAccountOrCardUuids.length > 0)
 
   useEffect(() => {
     const timeout = setTimeout(() => setDescription(descriptionInput.trim()), 300)

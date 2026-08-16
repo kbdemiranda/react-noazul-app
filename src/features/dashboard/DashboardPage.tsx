@@ -191,11 +191,10 @@ export function DashboardPage() {
                 <ul className="flex flex-col">
                   {accounts.map((account) => (
                     <li key={account.uuid}>
-                      {/* The transactions filter is per-balance (multi-currency accounts have one AccountBalance
-                          per currency) — this links to the account's first currency; a multi-currency account can
-                          switch currency from the Transações page's own filter afterward. */}
+                      {/* Transactions are filtered per balance. Pass every balance from a multi-currency account so
+                          the multi-select starts with the entire account selected. */}
                       <Link
-                        to={`/transacoes?accountBalanceUuid=${account.balances[0].uuid}`}
+                        to={`/transacoes?accountBalanceUuids=${account.balances.map((balance) => balance.uuid).join(',')}`}
                         className="flex items-center gap-3 border-b border-ink/[.06] py-2.5 last:border-b-0 hover:opacity-80"
                       >
                         <BankLogo name={account.bankName} size={36} />
