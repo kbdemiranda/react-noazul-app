@@ -291,7 +291,7 @@ export function TransactionsPage() {
                     </div>
                     <p className={`font-heading text-sm tabular-nums ${tone.text}`}>
                       {tone.sign}
-                      {formatCurrency(transaction.amount)}
+                      {formatCurrency(transaction.amount, transaction.fromAccountCurrency ?? undefined)}
                     </p>
                   </Card>
                 </Link>
@@ -335,7 +335,7 @@ export function TransactionsPage() {
                       <td className="px-4 py-2.5">{formatDate(transaction.date)}</td>
                       <td className={`px-4 py-2.5 text-right font-heading tabular-nums ${tone.text}`}>
                         {tone.sign}
-                        {formatCurrency(transaction.amount)}
+                        {formatCurrency(transaction.amount, transaction.fromAccountCurrency ?? undefined)}
                       </td>
                     </tr>
                   )
