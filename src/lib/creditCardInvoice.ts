@@ -7,7 +7,7 @@ interface CreditCardInvoiceDatesInput {
   dueDate?: string
 }
 
-function clampDay(month: Date, day: number): Date {
+export function clampDay(month: Date, day: number): Date {
   const safeDay = Number.isFinite(day) ? Math.max(1, Math.trunc(day)) : 1
   return setDate(month, Math.min(safeDay, getDaysInMonth(month)))
 }
