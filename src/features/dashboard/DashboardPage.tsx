@@ -12,7 +12,14 @@ import { BankLogo } from '../../lib/bankLogos'
 import { CategoryIconBadge } from '../../lib/categoryIcons'
 import { getCreditCardInvoiceDates } from '../../lib/creditCardInvoice'
 import { flowTone } from '../../lib/flow'
-import { formatCurrency, formatDate, formatFullDatePtBR, formatMonthYearPtBR, formatShortDatePtBR } from '../../lib/format'
+import {
+  currentMonthDateRange,
+  formatCurrency,
+  formatDate,
+  formatFullDatePtBR,
+  formatMonthYearPtBR,
+  formatShortDatePtBR,
+} from '../../lib/format'
 import { accountTypeLabels } from '../../lib/labels'
 import { useAuth } from '../../context/AuthContext'
 import { TransactionFormModal } from '../transactions/TransactionFormModal'
@@ -25,10 +32,14 @@ export function DashboardPage() {
   const [hideSaldo, setHideSaldo] = useState(false)
   const [hideFaturas, setHideFaturas] = useState(false)
   const [isCreating, setIsCreating] = useState(false)
+  const [currentMonthRange] = useState(currentMonthDateRange)
 
   const accountsQuery = useQuery({ queryKey: ['accounts'], queryFn: accountsApi.list })
   const creditCardsQuery = useQuery({ queryKey: ['credit-cards'], queryFn: creditCardsApi.list })
-  const transactionsQuery = useQuery({ queryKey: ['transactions'], queryFn: () => transactionsApi.list() })
+  const transactionsQuery = useQuery({
+    queryKey: ['transactions', currentMonthRange],
+    queryFn: () => transactionsApi.list(currentMonthRange),
+  })
 
   const createMutation = useMutation({
     mutationFn: (payload: TransactionPayload) => transactionsApi.create(payload),
@@ -70,11 +81,7 @@ export function DashboardPage() {
   )
   const totalInvoice = useMemo(() => cardInvoices.reduce((sum, entry) => sum + entry.total, 0), [cardInvoices])
 
-  const monthTransactions = useMemo(() => {
-    const now = new Date()
-    const currentMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
-    return transactions.filter((t) => t.date.startsWith(currentMonth))
-  }, [transactions])
+  const monthTransactions = transactions
 
   const categoryBreakdown = useMemo(() => {
     const expenses = monthTransactions.filter((t) => t.type === 'EXPENSE')

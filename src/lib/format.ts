@@ -36,6 +36,16 @@ export function todayIsoDate(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
+export function currentMonthDateRange(): { dateFrom: string; dateTo: string } {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = today.getMonth()
+  return {
+    dateFrom: format(new Date(year, month, 1), 'yyyy-MM-dd'),
+    dateTo: format(new Date(year, month + 1, 0), 'yyyy-MM-dd'),
+  }
+}
+
 export function formatFullDatePtBR(date: Date): string {
   const formatted = format(date, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })
   return formatted.charAt(0).toUpperCase() + formatted.slice(1)

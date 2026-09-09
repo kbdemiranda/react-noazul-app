@@ -24,25 +24,25 @@ export interface TransactionPayload {
 }
 
 export interface TransactionFilters {
+  dateFrom: string // yyyy-MM-dd
+  dateTo: string // yyyy-MM-dd
   description?: string
   type?: FlowType
   categoryUuid?: string
   accountBalanceUuids?: string[]
   creditCardUuids?: string[]
-  dateFrom?: string // yyyy-MM-dd
-  dateTo?: string // yyyy-MM-dd
 }
 
 export const transactionsApi = {
-  async list(filters?: TransactionFilters): Promise<Transaction[]> {
+  async list(filters: TransactionFilters): Promise<Transaction[]> {
     if (USE_MOCKS) return mockTransactions.list(filters)
     // Comma-joined into a plain string, not passed as an array: axios's default
     // paramsSerializer renders an array param as `key[]=v1&key[]=v2`, which
     // Spring's `@RequestParam List<UUID>` won't bind (it expects the bare key).
     const params = {
       ...filters,
-      accountBalanceUuids: filters?.accountBalanceUuids?.length ? filters.accountBalanceUuids.join(',') : undefined,
-      creditCardUuids: filters?.creditCardUuids?.length ? filters.creditCardUuids.join(',') : undefined,
+      accountBalanceUuids: filters.accountBalanceUuids?.length ? filters.accountBalanceUuids.join(',') : undefined,
+      creditCardUuids: filters.creditCardUuids?.length ? filters.creditCardUuids.join(',') : undefined,
     }
     const { data } = await apiClient.get<Transaction[]>('/transactions', { params })
     return data

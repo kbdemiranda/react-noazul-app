@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Landmark, Layers, Plus, Receipt, Search, SlidersHorizontal, X } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Landmark, Layers, Plus, Receipt, Search, SlidersHorizontal, X } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { accountsApi } from '../../api/accounts'
@@ -17,7 +17,7 @@ import { WarningBanner } from '../../components/WarningBanner'
 import { BankLogo } from '../../lib/bankLogos'
 import { CategoryIconBadge, categoryColor } from '../../lib/categoryIcons'
 import { flowTone } from '../../lib/flow'
-import { formatCurrency, formatDate } from '../../lib/format'
+import { currentMonthDateRange, formatCurrency, formatDate } from '../../lib/format'
 import { accountTypeLabels } from '../../lib/labels'
 import { TransactionFormModal } from './TransactionFormModal'
 
@@ -34,6 +34,60 @@ const filterOptions: { value: Filter; label: string }[] = [
 const ALL_CATEGORIES = ''
 const ALL_ACCOUNTS = ''
 const ALL_ACCOUNTS_LABEL = 'Todas as contas/cartões'
+
+type DateRange = Pick<TransactionFilters, 'dateFrom' | 'dateTo'>
+
+function dateFromIso(isoDate: string): Date {
+  const [year, month, day] = isoDate.split('-').map(Number)
+  return new Date(year, month - 1, day)
+}
+
+function toIsoDate(date: Date): string {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function monthRange(reference: Date): DateRange {
+  const year = reference.getFullYear()
+  const month = reference.getMonth()
+  return {
+    dateFrom: toIsoDate(new Date(year, month, 1)),
+    dateTo: toIsoDate(new Date(year, month + 1, 0)),
+  }
+}
+
+function currentWeekRange(): DateRange {
+  const today = new Date()
+  const start = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+  start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
+  const end = new Date(start)
+  end.setDate(end.getDate() + 6)
+  return { dateFrom: toIsoDate(start), dateTo: toIsoDate(end) }
+}
+
+function todayRange(): DateRange {
+  const today = toIsoDate(new Date())
+  return { dateFrom: today, dateTo: today }
+}
+
+function isFullMonthRange(dateFrom: string, dateTo: string): boolean {
+  const range = monthRange(dateFromIso(dateFrom))
+  return range.dateFrom === dateFrom && range.dateTo === dateTo
+}
+
+function formatPeriodLabel(dateFrom: string, dateTo: string): string {
+  if (isFullMonthRange(dateFrom, dateTo)) {
+    const monthLabel = new Intl.DateTimeFormat('pt-BR', { month: 'long', year: 'numeric' }).format(
+      dateFromIso(dateFrom),
+    )
+    return `${monthLabel.charAt(0).toUpperCase()}${monthLabel.slice(1)}`
+  }
+
+  const formatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+  return `${formatter.format(dateFromIso(dateFrom))} — ${formatter.format(dateFromIso(dateTo))}`
+}
 
 export function TransactionsPage() {
   const navigate = useNavigate()
@@ -54,9 +108,11 @@ export function TransactionsPage() {
   const [description, setDescription] = useState('')
   const [categoryUuid, setCategoryUuid] = useState(ALL_CATEGORIES)
   const [accountOrCardUuids, setAccountOrCardUuids] = useState<string[]>(initialAccountOrCardUuids)
-  const [dateFrom, setDateFrom] = useState('')
-  const [dateTo, setDateTo] = useState('')
+  const [currentMonth] = useState(currentMonthDateRange)
+  const [dateFrom, setDateFrom] = useState(currentMonth.dateFrom)
+  const [dateTo, setDateTo] = useState(currentMonth.dateTo)
   const [filtersOpen, setFiltersOpen] = useState(initialAccountOrCardUuids.length > 0)
+  const [periodMenuOpen, setPeriodMenuOpen] = useState(false)
 
   useEffect(() => {
     const timeout = setTimeout(() => setDescription(descriptionInput.trim()), 300)
@@ -67,7 +123,7 @@ export function TransactionsPage() {
   const creditCardsQuery = useQuery({ queryKey: ['credit-cards'], queryFn: creditCardsApi.list })
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
 
-  const filters: TransactionFilters = useMemo(() => {
+  const filters = useMemo<TransactionFilters>(() => {
     const accountBalanceUuids = accountOrCardUuids.filter((value) => !value.startsWith('card:'))
     const creditCardUuids = accountOrCardUuids
       .filter((value) => value.startsWith('card:'))
@@ -78,8 +134,8 @@ export function TransactionsPage() {
       categoryUuid: categoryUuid || undefined,
       accountBalanceUuids: accountBalanceUuids.length ? accountBalanceUuids : undefined,
       creditCardUuids: creditCardUuids.length ? creditCardUuids : undefined,
-      dateFrom: dateFrom || undefined,
-      dateTo: dateTo || undefined,
+      dateFrom,
+      dateTo,
     }
   }, [description, filter, categoryUuid, accountOrCardUuids, dateFrom, dateTo])
 
@@ -130,13 +186,11 @@ export function TransactionsPage() {
     [accountsQuery.data, creditCardsQuery.data],
   )
 
-  const extraFiltersCount = [
-    descriptionInput.trim(),
-    categoryUuid,
-    accountOrCardUuids.length > 0,
-    dateFrom,
-    dateTo,
-  ].filter(Boolean).length
+  const hasCustomPeriod = dateFrom !== currentMonth.dateFrom || dateTo !== currentMonth.dateTo
+  const periodLabel = formatPeriodLabel(dateFrom, dateTo)
+  const extraFiltersCount = [descriptionInput.trim(), categoryUuid, accountOrCardUuids.length > 0, hasCustomPeriod].filter(
+    Boolean,
+  ).length
   const hasActiveFilters = filter !== 'ALL' || extraFiltersCount > 0
 
   function clearFilters() {
@@ -145,8 +199,19 @@ export function TransactionsPage() {
     setDescription('')
     setCategoryUuid(ALL_CATEGORIES)
     setAccountOrCardUuids([])
-    setDateFrom('')
-    setDateTo('')
+    setDateFrom(currentMonth.dateFrom)
+    setDateTo(currentMonth.dateTo)
+  }
+
+  function applyPeriod(period: DateRange) {
+    setDateFrom(period.dateFrom)
+    setDateTo(period.dateTo)
+    setPeriodMenuOpen(false)
+  }
+
+  function changeMonth(offset: number) {
+    const selectedMonth = dateFromIso(dateFrom)
+    applyPeriod(monthRange(new Date(selectedMonth.getFullYear(), selectedMonth.getMonth() + offset, 1)))
   }
 
   const transactions = transactionsQuery.data ?? []
@@ -197,6 +262,82 @@ export function TransactionsPage() {
             Limpar
           </button>
         )}
+
+        <div className="relative z-30 ml-auto max-sm:ml-0">
+        <div className="relative flex items-center rounded-2xl bg-surface p-1 shadow-sm ring-1 ring-ink/[.08]">
+          <button
+            type="button"
+            onClick={() => changeMonth(-1)}
+            className="grid h-9 w-9 place-items-center rounded-xl text-ink/65 transition-colors hover:bg-ink/[.06] hover:text-ink"
+            aria-label="Mês anterior"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setPeriodMenuOpen((open) => !open)}
+            className="inline-flex h-9 items-center gap-2 rounded-xl px-3 text-sm font-semibold text-ink transition-colors hover:bg-ink/[.06]"
+            aria-haspopup="menu"
+            aria-expanded={periodMenuOpen}
+            aria-label={`Período exibido: ${periodLabel}`}
+          >
+            {periodLabel}
+            <ChevronDown size={15} className={`text-ink/50 transition-transform ${periodMenuOpen ? 'rotate-180' : ''}`} />
+          </button>
+          <button
+            type="button"
+            onClick={() => changeMonth(1)}
+            className="grid h-9 w-9 place-items-center rounded-xl text-ink/65 transition-colors hover:bg-ink/[.06] hover:text-ink"
+            aria-label="Próximo mês"
+          >
+            <ChevronRight size={18} />
+          </button>
+
+          {periodMenuOpen && (
+            <div
+              role="menu"
+              className="absolute top-full left-1/2 z-40 mt-2 w-44 -translate-x-1/2 rounded-2xl bg-raised p-1.5 shadow-lg ring-1 ring-ink/[.1]"
+            >
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => applyPeriod(todayRange())}
+                className="w-full rounded-xl px-3 py-2 text-left text-sm text-ink/75 transition-colors hover:bg-ink/[.06] hover:text-ink"
+              >
+                Hoje
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => applyPeriod(currentWeekRange())}
+                className="w-full rounded-xl px-3 py-2 text-left text-sm text-ink/75 transition-colors hover:bg-ink/[.06] hover:text-ink"
+              >
+                Esta semana
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => applyPeriod(currentMonthDateRange())}
+                className="w-full rounded-xl px-3 py-2 text-left text-sm text-ink/75 transition-colors hover:bg-ink/[.06] hover:text-ink"
+              >
+                Este mês
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setPeriodMenuOpen(false)
+                  setFiltersOpen(true)
+                }}
+                className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm text-ink/75 transition-colors hover:bg-ink/[.06] hover:text-ink"
+              >
+                <CalendarDays size={15} />
+                Escolher período
+              </button>
+            </div>
+          )}
+        </div>
+        </div>
       </div>
 
       {filtersOpen && (
@@ -237,7 +378,7 @@ export function TransactionsPage() {
               type="date"
               value={dateFrom}
               max={dateTo || undefined}
-              onChange={(event) => setDateFrom(event.target.value)}
+              onChange={(event) => setDateFrom(event.target.value || currentMonth.dateFrom)}
               className={`${inputClass} min-w-0 flex-1`}
             />
           </Field>
@@ -247,7 +388,7 @@ export function TransactionsPage() {
               type="date"
               value={dateTo}
               min={dateFrom || undefined}
-              onChange={(event) => setDateTo(event.target.value)}
+              onChange={(event) => setDateTo(event.target.value || currentMonth.dateTo)}
               className={`${inputClass} min-w-0 flex-1`}
             />
           </Field>
@@ -268,7 +409,7 @@ export function TransactionsPage() {
         <Card className="flex flex-col items-center gap-2 py-8 text-center">
           <Receipt size={28} className="text-ink/35" />
           <p className="text-sm text-ink/60">
-            {hasActiveFilters ? 'Nenhuma transação encontrada para esses filtros.' : 'Nenhuma transação encontrada.'}
+            {hasActiveFilters ? 'Nenhuma transação encontrada para esses filtros.' : 'Nenhuma transação neste período.'}
           </p>
         </Card>
       )}
