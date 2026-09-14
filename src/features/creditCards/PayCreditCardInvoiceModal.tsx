@@ -39,10 +39,34 @@ type FormValues = z.output<typeof schema>
 
 interface PayCreditCardInvoiceModalProps {
   card: CreditCard
+  invoiceUuid: string
   onClose: () => void
+  /**
+   * Amount owed for the specific invoice being paid (that cycle's own
+   * previousBalance + currentInvoiceTotal) — the caller computes this per
+   * cycle so that, e.g., paying August's own total settles August without
+   * touching September/October, while paying the current cycle's own total
+   * (which always includes everything carried forward) settles the whole
+   * card. Never derived in here from a global running balance.
+   */
+  defaultAmount: number
+  /**
+   * Defaults to today when omitted (paying the current, still-open cycle).
+   * For a past cycle, the caller passes that cycle's own due date so the
+   * payment is dated inside the invoice being paid — required for it to
+   * count against that specific cycle rather than a later one when the
+   * amount owed is recomputed from transaction history.
+   */
+  defaultDate?: string
 }
 
-export function PayCreditCardInvoiceModal({ card, onClose }: PayCreditCardInvoiceModalProps) {
+export function PayCreditCardInvoiceModal({
+  card,
+  invoiceUuid,
+  onClose,
+  defaultAmount,
+  defaultDate,
+}: PayCreditCardInvoiceModalProps) {
   const queryClient = useQueryClient()
   const [submitError, setSubmitError] = useState<unknown>(null)
   const [pendingAttachments, setPendingAttachments] = useState<File[]>([])
@@ -80,11 +104,6 @@ export function PayCreditCardInvoiceModal({ card, onClose }: PayCreditCardInvoic
     [balanceOptions, card.currency],
   )
 
-  // The true amount currently owed on the card, not just this cycle's
-  // charges — `currentInvoiceTotal + previousBalance` would double-count a
-  // payment already made within the still-open current cycle.
-  const totalDue = card.creditLimit - card.availableLimit
-
   const {
     register,
     handleSubmit,
@@ -94,8 +113,8 @@ export function PayCreditCardInvoiceModal({ card, onClose }: PayCreditCardInvoic
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      amount: totalDue,
-      date: todayIsoDate(),
+      amount: defaultAmount,
+      date: defaultDate ?? todayIsoDate(),
       accountBalanceUuid: balanceOptions[0]?.balanceUuid,
     },
   })
@@ -117,6 +136,7 @@ export function PayCreditCardInvoiceModal({ card, onClose }: PayCreditCardInvoic
         categoryUuid: category?.uuid ?? null,
         fromAccountBalanceUuid: values.accountBalanceUuid,
         toCreditCardUuid: card.uuid,
+        invoiceUuid,
       })
       for (const file of pendingAttachments) {
         await attachmentsApi.upload(transaction.uuid, file)

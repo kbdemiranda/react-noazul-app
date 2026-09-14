@@ -1,5 +1,5 @@
 import { addMonths, getDaysInMonth, isAfter, setDate, subMonths } from 'date-fns'
-import type { Account, AccountBalance, Attachment, AuthTokens, Category, CreditCard, Transaction, User } from '../types/domain'
+import type { Account, AccountBalance, Attachment, AuthTokens, Category, CreditCard, Invoice, Transaction, User } from '../types/domain'
 import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload } from './accounts'
 import type { CreditCardPayload } from './creditCards'
 import type { CategoryPayload } from './categories'
@@ -276,6 +276,23 @@ export const mockCreditCards = {
     const found = creditCards.find((c) => c.uuid === uuidStr)
     if (!found) throw new Error('Cartão não encontrado.')
     return delay(withInvoiceSummary(found))
+  },
+  async listInvoices(uuidStr: string): Promise<Invoice[]> {
+    const card = creditCards.find((c) => c.uuid === uuidStr)
+    if (!card) throw new Error('Cartão não encontrado.')
+    const summary = computeInvoiceSummary(card)
+    return delay([
+      {
+        uuid: `mock-invoice-${card.uuid}`,
+        closingDate: summary.closingDate,
+        dueDate: summary.dueDate,
+        totalAmount: summary.currentInvoiceTotal,
+        previousBalance: summary.previousBalance,
+        paidAmount: 0,
+        outstandingAmount: summary.currentInvoiceTotal + summary.previousBalance,
+        status: 'OPEN',
+      },
+    ])
   },
   async create(payload: CreditCardPayload): Promise<CreditCard> {
     const card: CreditCard = {

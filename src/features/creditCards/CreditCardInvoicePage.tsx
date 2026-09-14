@@ -63,27 +63,31 @@ export function CreditCardInvoicePage() {
   })
   const card = cardQuery.data
 
+  const invoicesQuery = useQuery({
+    queryKey: ['credit-cards', uuid, 'invoices'],
+    queryFn: () => creditCardsApi.listInvoices(uuid!),
+    enabled: Boolean(uuid),
+  })
+
   const categoriesQuery = useQuery({ queryKey: ['categories'], queryFn: categoriesApi.list })
 
-  const referenceMonthLabel = useMemo(() => {
-    if (!card) return ''
-    const { closingDate } = getCreditCardInvoiceDates(card)
-    const label = format(closingDate, 'MMMM yyyy', { locale: ptBR })
-    return label.charAt(0).toUpperCase() + label.slice(1)
-  }, [card])
-
-  // The filter bar's period pill browses past cycles independently of the
-  // summary cards above (previousBalance/dueDate/totalDue always describe the
-  // real, current invoice — they shouldn't shift just because the user is
-  // looking at an older cycle's purchases).
+  // The filter bar's period pill browses past, closed cycles. Each cycle's
+  // own "Valor da fatura" (below) is that cycle's own charges plus whatever
+  // was still unpaid before it — so paying a past, overdue invoice settles
+  // exactly that fatura (and anything before it), leaving later, still-open
+  // cycles untouched. Paying the current cycle settles everything, since its
+  // own total already includes every unpaid cycle before it.
   const period = useMemo(() => {
     if (!card) return null
     const { closingDate: currentClosingDate } = getCreditCardInvoiceDates(card)
     const closingDate =
       cycleOffset === 0 ? currentClosingDate : clampDay(subMonths(currentClosingDate, cycleOffset), card.closingDay)
     const previousClosingDate = clampDay(subMonths(closingDate, 1), card.closingDay)
+    const dueDate = clampDay(closingDate, card.dueDay)
     const label = format(closingDate, 'MMMM yyyy', { locale: ptBR })
     return {
+      closingDate,
+      dueDate,
       dateFrom: format(addDays(previousClosingDate, 1), 'yyyy-MM-dd'),
       dateTo: format(closingDate, 'yyyy-MM-dd'),
       label: label.charAt(0).toUpperCase() + label.slice(1),
@@ -104,6 +108,16 @@ export function CreditCardInvoicePage() {
     enabled: Boolean(uuid && card && period),
   })
   const transactions = transactionsQuery.data ?? []
+
+  // A historical period must read its own persisted ledger row. The card
+  // response describes only the current cycle and cannot tell whether August,
+  // for example, has already been paid.
+  const invoice = useMemo(
+    () => invoicesQuery.data?.find((candidate) => candidate.closingDate === period?.dateTo),
+    [invoicesQuery.data, period?.dateTo],
+  )
+  const previousBalance = invoice?.previousBalance
+  const cycleTotalDue = invoice?.outstandingAmount
 
   const categoryOptions = useMemo<PickerOption[]>(
     () => [
@@ -126,6 +140,10 @@ export function CreditCardInvoicePage() {
     return <ErrorBanner error={cardQuery.error} />
   }
 
+  if (invoicesQuery.isError) {
+    return <ErrorBanner error={invoicesQuery.error} />
+  }
+
   if (cardQuery.isLoading || !card) {
     return (
       <div className="flex flex-col gap-4">
@@ -135,12 +153,7 @@ export function CreditCardInvoicePage() {
     )
   }
 
-  const { closingDate, dueDate } = getCreditCardInvoiceDates(card)
-
-  // The true amount currently owed, not just this cycle's gross charges — a
-  // payment made within the still-open current cycle already reduced
-  // `availableLimit`, so `currentInvoiceTotal + previousBalance` would miss it.
-  const totalDue = card.creditLimit - card.availableLimit
+  const { closingDate, dueDate } = period!
 
   return (
     <div className="flex flex-col gap-4">
@@ -164,8 +177,15 @@ export function CreditCardInvoicePage() {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <Card className="flex flex-col gap-2">
-          <SummaryRow label="Saldo anterior" value={formatCurrency(card.previousBalance)} valueClassName="text-expense" />
-          <SummaryRow label="Referência" value={referenceMonthLabel} />
+          {previousBalance !== undefined ? (
+            <SummaryRow label="Saldo anterior" value={formatCurrency(previousBalance)} valueClassName="text-expense" />
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[12px] font-semibold text-ink/55">Saldo anterior</span>
+              <div className="h-3.5 w-16 animate-pulse rounded bg-ink/[.08]" />
+            </div>
+          )}
+          <SummaryRow label="Referência" value={period!.label} />
           <SummaryRow label="Fechamento" value={format(closingDate, 'dd/MM/yyyy')} />
         </Card>
         <Card className="flex flex-col justify-center gap-1">
@@ -174,11 +194,18 @@ export function CreditCardInvoicePage() {
         </Card>
         <Card className="flex flex-col gap-2">
           <p className="text-[12px] font-semibold text-ink/55">Valor da fatura</p>
-          <p className="font-data text-xl font-bold tabular-nums text-expense">
-            {formatCurrency(totalDue)}
-          </p>
-          <Button variant="success" className="w-full" disabled={totalDue <= 0} onClick={() => setIsPaying(true)}>
-            Pagar
+          {cycleTotalDue !== undefined ? (
+            <p className="font-data text-xl font-bold tabular-nums text-expense">{formatCurrency(cycleTotalDue)}</p>
+          ) : (
+            <div className="h-7 w-28 animate-pulse rounded bg-ink/[.08]" />
+          )}
+          <Button
+            variant="success"
+            className="w-full"
+            disabled={!cycleTotalDue || cycleTotalDue <= 0}
+            onClick={() => setIsPaying(true)}
+          >
+            {invoice?.status === 'PAID' || cycleTotalDue === 0 ? 'Fatura paga' : 'Pagar'}
           </Button>
         </Card>
       </div>
@@ -332,7 +359,14 @@ export function CreditCardInvoicePage() {
         })}
       </div>
 
-      {isPaying && <PayCreditCardInvoiceModal card={card} onClose={() => setIsPaying(false)} />}
+      {isPaying && cycleTotalDue !== undefined && (
+        <PayCreditCardInvoiceModal
+          card={card}
+          invoiceUuid={invoice!.uuid}
+          defaultAmount={cycleTotalDue}
+          onClose={() => setIsPaying(false)}
+        />
+      )}
     </div>
   )
 }

@@ -8,6 +8,8 @@ export type Currency = 'BRL' | 'USD' | 'EUR' | 'GBP' | 'ARS'
 
 export type CategoryOrigin = 'SYSTEM' | 'USER'
 
+export type InvoiceStatus = 'OPEN' | 'CLOSED' | 'PARTIALLY_PAID' | 'PAID'
+
 export type Theme = 'LIGHT' | 'DARK' | 'SYSTEM'
 
 export interface User {
@@ -52,15 +54,25 @@ export interface CreditCard {
   availableLimit: number
   closingDay: number
   dueDay: number
-  // Computed on every read (no persisted invoice) — see the backend's
-  // agent/specs/credit-card-invoice-payment/spec.md. currentInvoiceTotal is
-  // this cycle's own EXPENSE total; previousBalance is whatever's left owed
-  // from before this cycle, floored at zero; closingDate/dueDate are the
-  // concrete next occurrence of closingDay/dueDay.
+  // Current persisted invoice summary.
   currentInvoiceTotal: number
   previousBalance: number
   closingDate: string // yyyy-MM-dd
   dueDate: string // yyyy-MM-dd
+  invoiceUuid?: string
+  paidAmount?: number
+  invoiceStatus?: InvoiceStatus
+}
+
+export interface Invoice {
+  uuid: string
+  closingDate: string
+  dueDate: string
+  totalAmount: number
+  previousBalance: number
+  paidAmount: number
+  outstandingAmount: number
+  status: InvoiceStatus
 }
 
 export interface Category {

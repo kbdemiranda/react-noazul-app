@@ -18,6 +18,8 @@ export interface TransactionPayload {
   // Only for a TRANSFER paying down a credit card — mutually exclusive with
   // toAccountBalanceUuid. This is how "pay the invoice" is recorded.
   toCreditCardUuid?: string | null
+  // Optional persisted invoice receiving a card charge/refund or payment.
+  invoiceUuid?: string | null
   // Only for EXCHANGE — the amount credited to toAccountBalanceUuid, in its
   // own currency.
   convertedAmount?: number | null
