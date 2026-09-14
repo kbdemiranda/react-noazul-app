@@ -118,6 +118,8 @@ export function CreditCardInvoicePage() {
   )
   const previousBalance = invoice?.previousBalance
   const cycleTotalDue = invoice?.outstandingAmount
+  const invoiceTotal = invoice ? invoice.totalAmount + invoice.previousBalance : undefined
+  const isPartiallyPaid = invoice?.status === 'PARTIALLY_PAID'
 
   const categoryOptions = useMemo<PickerOption[]>(
     () => [
@@ -194,8 +196,18 @@ export function CreditCardInvoicePage() {
         </Card>
         <Card className="flex flex-col gap-2">
           <p className="text-[12px] font-semibold text-ink/55">Valor da fatura</p>
-          {cycleTotalDue !== undefined ? (
-            <p className="font-data text-xl font-bold tabular-nums text-expense">{formatCurrency(cycleTotalDue)}</p>
+          {cycleTotalDue !== undefined && invoiceTotal !== undefined ? (
+            <>
+              {isPartiallyPaid ? (
+                <>
+                  <SummaryRow label="Total" value={formatCurrency(invoiceTotal)} />
+                  <SummaryRow label="Pago" value={formatCurrency(invoice.paidAmount)} valueClassName="text-income" />
+                  <SummaryRow label="Falta pagar" value={formatCurrency(cycleTotalDue)} valueClassName="text-expense" />
+                </>
+              ) : (
+                <p className="font-data text-xl font-bold tabular-nums text-expense">{formatCurrency(cycleTotalDue)}</p>
+              )}
+            </>
           ) : (
             <div className="h-7 w-28 animate-pulse rounded bg-ink/[.08]" />
           )}
@@ -205,7 +217,11 @@ export function CreditCardInvoicePage() {
             disabled={!cycleTotalDue || cycleTotalDue <= 0}
             onClick={() => setIsPaying(true)}
           >
-            {invoice?.status === 'PAID' || cycleTotalDue === 0 ? 'Fatura paga' : 'Pagar'}
+            {invoice?.status === 'PAID' || cycleTotalDue === 0
+              ? 'Fatura paga'
+              : isPartiallyPaid
+                ? 'Pagar restante'
+                : 'Pagar'}
           </Button>
         </Card>
       </div>
