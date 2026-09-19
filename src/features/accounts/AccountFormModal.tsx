@@ -1,6 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
 import { z } from 'zod'
+import { Plus } from 'lucide-react'
 import { Button } from '../../components/Button'
 import { CurrencyInput } from '../../components/CurrencyInput'
 import { ErrorBanner } from '../../components/ErrorBanner'
@@ -13,7 +14,7 @@ import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload 
 import { useState } from 'react'
 
 const schema = z.object({
-  name: z.string().min(1, 'Informe um nome'),
+  name: z.string().trim().optional(),
   bankName: z.string().min(1, 'Informe o banco'),
   type: z.enum(['CHECKING', 'SAVINGS', 'DIGITAL_WALLET', 'OTHER']),
 })
@@ -33,6 +34,7 @@ interface AccountFormModalProps {
 export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModalProps) {
   const [submitError, setSubmitError] = useState<unknown>(null)
   const isCreate = !account
+  const [isNameFieldVisible, setIsNameFieldVisible] = useState(Boolean(account))
   // Selecting more than one currency here is how an account becomes
   // multi-currency (e.g. Wise) right from creation — the same thing "+
   // Moeda" does later for an existing account, just batched up front.
@@ -71,7 +73,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
       if (isCreate) {
         const [firstCurrency, ...restCurrencies] = selectedCurrencies
         const payload: AccountCreatePayload = {
-          name: values.name,
+          name: values.name || values.bankName,
           bankName: values.bankName,
           type: values.type,
           currency: firstCurrency,
@@ -83,7 +85,11 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
         }))
         await onSubmit(payload, extraBalances)
       } else {
-        const payload: AccountUpdatePayload = { name: values.name, bankName: values.bankName, type: values.type }
+        const payload: AccountUpdatePayload = {
+          name: values.name || values.bankName,
+          bankName: values.bankName,
+          type: values.type,
+        }
         await onSubmit(payload)
       }
       onClose()
@@ -95,12 +101,33 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
   return (
     <Modal title={account ? 'Editar conta' : 'Nova conta'} onClose={onClose} maxWidthClassName="max-w-lg">
       <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
-        <Field label="Nome" htmlFor="name" error={errors.name?.message}>
-          <input id="name" className={inputClass} placeholder="Conta principal" {...register('name')} />
-        </Field>
-        <Field label="Instituição | Banco" htmlFor="bankName" error={errors.bankName?.message}>
-          <input id="bankName" className={inputClass} placeholder="Itaú" {...register('bankName')} />
-        </Field>
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="bankName" className="text-[13px] font-semibold text-ink">
+            Instituição | Banco
+          </label>
+          <div className={isNameFieldVisible ? 'grid grid-cols-1 gap-2 sm:grid-cols-2' : 'flex gap-2'}>
+            <input id="bankName" className={`${inputClass} min-w-0 flex-1`} placeholder="Itaú" {...register('bankName')} />
+            {isNameFieldVisible ? (
+              <input
+                id="name"
+                className={`${inputClass} min-w-0`}
+                placeholder="Nome da conta (opcional)"
+                {...register('name')}
+              />
+            ) : (
+              <button
+                type="button"
+                onClick={() => setIsNameFieldVisible(true)}
+                title="Adicionar nome da conta"
+                aria-label="Adicionar nome da conta"
+                className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-surface text-brand-500 transition-colors hover:bg-brand-100"
+              >
+                <Plus size={18} />
+              </button>
+            )}
+          </div>
+          {errors.bankName?.message && <span className="text-xs text-expense">{errors.bankName.message}</span>}
+        </div>
         <Field label="Tipo" htmlFor="type" error={errors.type?.message}>
           <SegmentedControl
             name="type"

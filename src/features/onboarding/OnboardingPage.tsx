@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+import { Plus } from 'lucide-react'
 import { accountsApi } from '../../api/accounts'
 import { creditCardsApi } from '../../api/creditCards'
 import { AuthSplitLayout } from '../../components/AuthSplitLayout'
@@ -16,7 +17,7 @@ import { accountTypeLabels } from '../../lib/labels'
 import type { AccountType } from '../../types/domain'
 
 const accountSchema = z.object({
-  name: z.string().min(1, 'Informe um nome'),
+  name: z.string().trim().optional(),
   bankName: z.string().min(1, 'Informe o banco'),
   type: z.enum(['CHECKING', 'SAVINGS', 'DIGITAL_WALLET', 'OTHER']),
   balance: z.coerce.number({ message: 'Informe um valor válido' }),
@@ -41,6 +42,7 @@ export function OnboardingPage() {
   const navigate = useNavigate()
   const [origin, setOrigin] = useState<Origin>('account')
   const [submitError, setSubmitError] = useState<unknown>(null)
+  const [isAccountNameFieldVisible, setIsAccountNameFieldVisible] = useState(false)
 
   const accountForm = useForm<AccountFormInput, unknown, AccountFormValues>({
     resolver: zodResolver(accountSchema),
@@ -61,7 +63,7 @@ export function OnboardingPage() {
       // Onboarding always starts a plain BRL account — additional currencies
       // (making it multi-currency, e.g. Wise) can be added later from the
       // Accounts page.
-      await accountsApi.create({ ...values, currency: 'BRL' })
+      await accountsApi.create({ ...values, name: values.name || values.bankName, currency: 'BRL' })
       navigate('/dashboard', { replace: true })
     } catch (error) {
       setSubmitError(error)
@@ -103,22 +105,40 @@ export function OnboardingPage() {
 
       {origin === 'account' ? (
         <form onSubmit={submitAccount} className="flex flex-col gap-4">
-          <Field label="Nome" htmlFor="ob-name" error={accountForm.formState.errors.name?.message}>
-            <input
-              id="ob-name"
-              className={inputClass}
-              placeholder="Conta principal"
-              {...accountForm.register('name')}
-            />
-          </Field>
-          <Field label="Banco" htmlFor="ob-bank" error={accountForm.formState.errors.bankName?.message}>
-            <input
-              id="ob-bank"
-              className={inputClass}
-              placeholder="Itaú, Nubank, Inter..."
-              {...accountForm.register('bankName')}
-            />
-          </Field>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="ob-bank" className="text-[13px] font-semibold text-ink">
+              Instituição | Banco
+            </label>
+            <div className={isAccountNameFieldVisible ? 'grid grid-cols-1 gap-2 sm:grid-cols-2' : 'flex gap-2'}>
+              <input
+                id="ob-bank"
+                className={`${inputClass} min-w-0 flex-1`}
+                placeholder="Itaú, Nubank, Inter..."
+                {...accountForm.register('bankName')}
+              />
+              {isAccountNameFieldVisible ? (
+                <input
+                  id="ob-name"
+                  className={`${inputClass} min-w-0`}
+                  placeholder="Nome da conta (opcional)"
+                  {...accountForm.register('name')}
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setIsAccountNameFieldVisible(true)}
+                  title="Adicionar nome da conta"
+                  aria-label="Adicionar nome da conta"
+                  className="grid h-11 w-11 flex-none place-items-center rounded-2xl bg-surface text-brand-500 transition-colors hover:bg-brand-100"
+                >
+                  <Plus size={18} />
+                </button>
+              )}
+            </div>
+            {accountForm.formState.errors.bankName?.message && (
+              <span className="text-xs text-expense">{accountForm.formState.errors.bankName.message}</span>
+            )}
+          </div>
           <Field label="Tipo" htmlFor="ob-type" error={accountForm.formState.errors.type?.message}>
             <SegmentedControl
               name="ob-type"
