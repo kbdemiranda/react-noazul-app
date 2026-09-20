@@ -18,7 +18,7 @@ import { TimeField } from '../../components/TimeField'
 import { BankLogo } from '../../lib/bankLogos'
 import { formatFileSize, todayIsoDate } from '../../lib/format'
 import { accountTypeLabels } from '../../lib/labels'
-import type { CreditCard } from '../../types/domain'
+import type { CreditCard, Transaction } from '../../types/domain'
 
 // "Cartão de Crédito" is one of the 34 shared SYSTEM categories seeded on both
 // the backend (V4__seed_system_categories.sql) and the mock store — reused
@@ -58,6 +58,7 @@ interface PayCreditCardInvoiceModalProps {
    * amount owed is recomputed from transaction history.
    */
   defaultDate?: string
+  payment?: Transaction
 }
 
 export function PayCreditCardInvoiceModal({
@@ -66,6 +67,7 @@ export function PayCreditCardInvoiceModal({
   onClose,
   defaultAmount,
   defaultDate,
+  payment,
 }: PayCreditCardInvoiceModalProps) {
   const queryClient = useQueryClient()
   const [submitError, setSubmitError] = useState<unknown>(null)
@@ -113,9 +115,10 @@ export function PayCreditCardInvoiceModal({
   } = useForm<FormInput, unknown, FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      amount: defaultAmount,
-      date: defaultDate ?? todayIsoDate(),
-      accountBalanceUuid: balanceOptions[0]?.balanceUuid,
+      amount: payment?.amount ?? defaultAmount,
+      date: payment?.date ?? defaultDate ?? todayIsoDate(),
+      time: payment?.time?.slice(0, 5),
+      accountBalanceUuid: payment?.fromAccountBalanceUuid ?? balanceOptions[0]?.balanceUuid,
     },
   })
 
@@ -127,17 +130,20 @@ export function PayCreditCardInvoiceModal({
     mutationFn: async (values: FormValues) => {
       const category =
         categoriesQuery.data?.find((c) => c.name === PAYMENT_CATEGORY_NAME) ?? categoriesQuery.data?.[0]
-      const transaction = await transactionsApi.create({
-        description: `Pagamento fatura ${card.name}`,
+      const payload = {
+        description: payment?.description ?? `Pagamento fatura ${card.name}`,
         amount: values.amount,
-        type: 'TRANSFER',
+        type: 'EXPENSE' as const,
         date: values.date,
         time: values.time ? `${values.time}:00` : null,
         categoryUuid: category?.uuid ?? null,
         fromAccountBalanceUuid: values.accountBalanceUuid,
         toCreditCardUuid: card.uuid,
         invoiceUuid,
-      })
+      }
+      const transaction = payment
+        ? await transactionsApi.update(payment.uuid, payload)
+        : await transactionsApi.create(payload)
       for (const file of pendingAttachments) {
         await attachmentsApi.upload(transaction.uuid, file)
       }
@@ -172,9 +178,9 @@ export function PayCreditCardInvoiceModal({
   }
 
   return (
-    <Modal title="Pagar fatura" onClose={onClose}>
+    <Modal title={payment ? 'Editar pagamento' : 'Pagar fatura'} onClose={onClose}>
       <p className="-mt-3 mb-4 text-[12.5px] text-ink/55">
-        Confirme os dados do pagamento da fatura {card.name}.
+        {payment ? `Atualize os dados do pagamento da fatura ${card.name}.` : `Confirme os dados do pagamento da fatura ${card.name}.`}
       </p>
 
       <form onSubmit={handleSubmit(submit)} className="flex flex-col gap-4">
@@ -220,7 +226,7 @@ export function PayCreditCardInvoiceModal({
         <div className="flex flex-col gap-2 rounded-2xl bg-surface p-3">
           {pendingAttachments.length === 0 && (
             <p className="text-[12.5px] text-ink/60">
-              Anexe o comprovante de pagamento — enviado assim que a fatura for paga.
+              Anexe o comprovante de pagamento — enviado ao salvar.
             </p>
           )}
           {pendingAttachments.length > 0 && (
@@ -264,7 +270,7 @@ export function PayCreditCardInvoiceModal({
             Cancelar
           </Button>
           <Button type="submit" variant="success" isLoading={isSubmitting} disabled={balanceOptions.length === 0}>
-            Pagar
+            {payment ? 'Salvar' : 'Pagar'}
           </Button>
         </div>
       </form>

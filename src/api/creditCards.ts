@@ -1,7 +1,7 @@
 import { apiClient } from './client'
 import { USE_MOCKS } from '../lib/mockConfig'
 import { mockCreditCards } from './mockStore'
-import type { CreditCard, Currency, Invoice } from '../types/domain'
+import type { CreditCard, Currency, Invoice, Transaction } from '../types/domain'
 
 export interface CreditCardPayload {
   name: string
@@ -26,6 +26,11 @@ export const creditCardsApi = {
   async listInvoices(uuid: string): Promise<Invoice[]> {
     if (USE_MOCKS) return mockCreditCards.listInvoices(uuid)
     const { data } = await apiClient.get<Invoice[]>(`/credit-cards/${uuid}/invoices`)
+    return data
+  },
+  async listInvoiceTransactions(cardUuid: string, invoiceUuid: string): Promise<Transaction[]> {
+    if (USE_MOCKS) return []
+    const { data } = await apiClient.get<Transaction[]>(`/credit-cards/${cardUuid}/invoices/${invoiceUuid}/transactions`)
     return data
   },
   async create(payload: CreditCardPayload): Promise<CreditCard> {

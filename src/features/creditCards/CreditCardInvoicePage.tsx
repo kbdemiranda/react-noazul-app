@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { addDays, format, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronDown, ChevronLeft, ChevronRight, Layers, Receipt, Search } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, Layers, Pencil, Receipt, Search } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { categoriesApi } from '../../api/categories'
@@ -18,6 +18,7 @@ import { clampDay, getCreditCardInvoiceDates } from '../../lib/creditCardInvoice
 import { flowTone } from '../../lib/flow'
 import { formatCurrency, formatDate } from '../../lib/format'
 import { PayCreditCardInvoiceModal } from './PayCreditCardInvoiceModal'
+import type { Transaction } from '../../types/domain'
 
 type TypeFilter = 'ALL' | 'EXPENSE' | 'INCOME'
 
@@ -33,6 +34,7 @@ export function CreditCardInvoicePage() {
   const { uuid } = useParams<{ uuid: string }>()
   const navigate = useNavigate()
   const [isPaying, setIsPaying] = useState(false)
+  const [editingPayment, setEditingPayment] = useState<Transaction | null>(null)
 
   const [type, setType] = useState<TypeFilter>('ALL')
   const [descriptionInput, setDescriptionInput] = useState('')
@@ -116,10 +118,18 @@ export function CreditCardInvoicePage() {
     () => invoicesQuery.data?.find((candidate) => candidate.closingDate === period?.dateTo),
     [invoicesQuery.data, period?.dateTo],
   )
+  const invoiceTransactionsQuery = useQuery({
+    queryKey: ['credit-cards', uuid, 'invoices', invoice?.uuid, 'transactions'],
+    queryFn: () => creditCardsApi.listInvoiceTransactions(uuid!, invoice!.uuid),
+    enabled: Boolean(uuid && invoice),
+  })
   const previousBalance = invoice?.previousBalance
   const cycleTotalDue = invoice?.outstandingAmount
   const invoiceTotal = invoice ? invoice.totalAmount + invoice.previousBalance : undefined
   const isPartiallyPaid = invoice?.status === 'PARTIALLY_PAID'
+  const payments = (invoiceTransactionsQuery.data ?? []).filter(
+    (transaction) => transaction.type === 'EXPENSE' && transaction.toCreditCardUuid === uuid,
+  )
 
   const categoryOptions = useMemo<PickerOption[]>(
     () => [
@@ -225,6 +235,67 @@ export function CreditCardInvoicePage() {
           </Button>
         </Card>
       </div>
+
+      {payments.length > 0 && (
+        <Card className="overflow-hidden p-0">
+          <div className="flex items-center justify-between gap-3 px-5 pt-4 pb-3">
+            <div>
+              <p className="text-sm font-semibold text-ink">Detalhes do pagamento</p>
+              <p className="mt-0.5 text-[12px] text-ink/55">Pagamentos realizados nesta fatura.</p>
+            </div>
+            <span className="rounded-full bg-income/10 px-2.5 py-1 font-data text-[12px] font-bold tabular-nums text-income">
+              {formatCurrency(payments.reduce((total, payment) => total + payment.amount, 0))}
+            </span>
+          </div>
+
+          <div className="hidden border-t border-ink/[.06] sm:block">
+            <table className="w-full text-sm">
+              <thead className="text-left text-[11px] font-medium text-ink/50">
+                <tr>
+                  <th className="px-5 py-2.5 font-medium">Data</th>
+                  <th className="px-5 py-2.5 font-medium">Valor pago</th>
+                  <th className="px-5 py-2.5 font-medium">Conta de origem</th>
+                  <th className="px-5 py-2.5 text-right font-medium">Ações</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((payment) => (
+                  <tr key={payment.uuid} className="border-t border-ink/[.06] last:border-b-0">
+                    <td className="px-5 py-3 font-medium tabular-nums text-ink">{formatDate(payment.date)}</td>
+                    <td className="px-5 py-3 font-data font-bold tabular-nums text-income">
+                      {formatCurrency(payment.amount)}
+                    </td>
+                    <td className="px-5 py-3 text-ink/70">{payment.fromAccountName ?? 'Conta'}</td>
+                    <td className="px-5 py-2 text-right">
+                      <Button variant="ghost" className="px-2 py-1.5 text-[13px]" onClick={() => setEditingPayment(payment)}>
+                        <Pencil size={13} />
+                        Editar
+                      </Button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="divide-y divide-ink/[.06] border-t border-ink/[.06] sm:hidden">
+            {payments.map((payment) => (
+              <div key={payment.uuid} className="flex items-center gap-3 px-5 py-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[12px] text-ink/55">{formatDate(payment.date)}</p>
+                  <p className="truncate text-sm text-ink">{payment.fromAccountName ?? 'Conta'}</p>
+                </div>
+                <span className="font-data text-sm font-bold tabular-nums text-income">
+                  {formatCurrency(payment.amount)}
+                </span>
+                <Button variant="ghost" className="px-2 py-1.5" onClick={() => setEditingPayment(payment)} aria-label="Editar pagamento">
+                  <Pencil size={14} />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
 
       <div className="relative z-20 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
@@ -381,6 +452,16 @@ export function CreditCardInvoicePage() {
           invoiceUuid={invoice!.uuid}
           defaultAmount={cycleTotalDue}
           onClose={() => setIsPaying(false)}
+        />
+      )}
+
+      {editingPayment && invoice && (
+        <PayCreditCardInvoiceModal
+          card={card}
+          invoiceUuid={invoice.uuid}
+          defaultAmount={editingPayment.amount}
+          payment={editingPayment}
+          onClose={() => setEditingPayment(null)}
         />
       )}
     </div>
