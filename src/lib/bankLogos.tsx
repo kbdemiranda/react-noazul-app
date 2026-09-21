@@ -37,13 +37,14 @@ function findLogo(name: string): string | null {
 
 interface BankLogoProps {
   name: string
+  logoUrl?: string | null
   size?: number
   className?: string
 }
 
 /** Real logo for known banks/issuers (matched against account.bankName or card.issuer); falls back to an initial-letter avatar. */
-export function BankLogo({ name, size = 36, className = '' }: BankLogoProps) {
-  const logo = findLogo(name)
+export function BankLogo({ name, logoUrl, size = 36, className = '' }: BankLogoProps) {
+  const logo = logoUrl ?? findLogo(name)
 
   if (logo) {
     return (

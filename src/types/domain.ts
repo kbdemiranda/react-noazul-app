@@ -38,6 +38,8 @@ export interface Account {
   uuid: string
   name: string
   bankName: string
+  financialInstitutionId: number | null
+  financialInstitutionLogoUrl: string | null
   type: AccountType
   // One entry per currency the account holds — a single-currency account
   // (the common case) has exactly one; a multi-currency account (Wise,
@@ -49,6 +51,8 @@ export interface CreditCard {
   uuid: string
   name: string
   issuer: string
+  financialInstitutionId: number | null
+  financialInstitutionLogoUrl: string | null
   currency: Currency
   creditLimit: number
   availableLimit: number

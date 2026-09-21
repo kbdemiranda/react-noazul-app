@@ -9,8 +9,10 @@ import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
 import { SegmentedControl } from '../../components/SegmentedControl'
+import { FinancialInstitutionAutocomplete, InstitutionLogo } from '../../components/FinancialInstitutionAutocomplete'
 import { CURRENCIES } from '../../lib/labels'
 import type { Currency, CreditCard } from '../../types/domain'
+import type { FinancialInstitution } from '../../api/financialInstitutions'
 
 const schema = z.object({
   name: z.string().min(1, 'Informe um nome'),
@@ -32,6 +34,7 @@ interface CreditCardFormModalProps {
 
 export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormModalProps) {
   const [submitError, setSubmitError] = useState<unknown>(null)
+  const [selectedInstitution, setSelectedInstitution] = useState<FinancialInstitution | null>(null)
   const {
     register,
     handleSubmit,
@@ -54,11 +57,15 @@ export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormM
 
   const selectedCurrency = watch('currency')
   const creditLimit = watch('creditLimit')
+  const issuer = watch('issuer') ?? ''
 
   const submit = async (values: FormValues) => {
     setSubmitError(null)
     try {
-      await onSubmit(values)
+      await onSubmit({
+        ...values,
+        financialInstitutionId: selectedInstitution?.id ?? (values.issuer === card?.issuer ? card.financialInstitutionId : null),
+      })
       onClose()
     } catch (error) {
       setSubmitError(error)
@@ -72,7 +79,22 @@ export function CreditCardFormModal({ card, onClose, onSubmit }: CreditCardFormM
           <input id="name" className={inputClass} placeholder="Cartão principal" {...register('name')} />
         </Field>
         <Field label="Emissor" htmlFor="issuer" error={errors.issuer?.message}>
-          <input id="issuer" className={inputClass} placeholder="Itaucard, Inter..." {...register('issuer')} />
+          <FinancialInstitutionAutocomplete
+            id="issuer"
+            value={issuer}
+            placeholder="Digite o nome do banco"
+            onChange={(value) => {
+              setValue('issuer', value, { shouldValidate: true })
+              if (value !== selectedInstitution?.name) setSelectedInstitution(null)
+            }}
+            onSelect={setSelectedInstitution}
+          />
+          {selectedInstitution && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-ink/60">
+              <InstitutionLogo institution={selectedInstitution} />
+              <span>Instituição selecionada: {selectedInstitution.name}</span>
+            </div>
+          )}
         </Field>
         <Field label="Moeda" htmlFor="currency" error={errors.currency?.message}>
           <SegmentedControl

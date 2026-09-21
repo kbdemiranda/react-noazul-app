@@ -6,6 +6,7 @@ import type { Account, AccountBalance, AccountType, Currency } from '../types/do
 export interface AccountCreatePayload {
   name: string
   bankName: string
+  financialInstitutionId?: number | null
   type: AccountType
   currency: Currency
   balance: number
@@ -16,6 +17,7 @@ export interface AccountCreatePayload {
 export interface AccountUpdatePayload {
   name: string
   bankName: string
+  financialInstitutionId?: number | null
   type: AccountType
 }
 

@@ -6,6 +6,7 @@ import type { CreditCard, Currency, Invoice, Transaction } from '../types/domain
 export interface CreditCardPayload {
   name: string
   issuer: string
+  financialInstitutionId?: number | null
   currency: Currency
   creditLimit: number
   closingDay: number

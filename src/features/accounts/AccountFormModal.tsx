@@ -8,10 +8,12 @@ import { ErrorBanner } from '../../components/ErrorBanner'
 import { Field, inputClass } from '../../components/Field'
 import { Modal } from '../../components/Modal'
 import { SegmentedControl } from '../../components/SegmentedControl'
+import { FinancialInstitutionAutocomplete, InstitutionLogo } from '../../components/FinancialInstitutionAutocomplete'
 import { CURRENCIES, accountTypeLabels } from '../../lib/labels'
 import type { Account, AccountType, Currency } from '../../types/domain'
 import type { AccountBalancePayload, AccountCreatePayload, AccountUpdatePayload } from '../../api/accounts'
 import { useState } from 'react'
+import type { FinancialInstitution } from '../../api/financialInstitutions'
 
 const schema = z.object({
   name: z.string().trim().optional(),
@@ -40,6 +42,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
   // Moeda" does later for an existing account, just batched up front.
   const [selectedCurrencies, setSelectedCurrencies] = useState<Currency[]>(['BRL'])
   const [balances, setBalances] = useState<Partial<Record<Currency, number>>>({ BRL: 0 })
+  const [selectedInstitution, setSelectedInstitution] = useState<FinancialInstitution | null>(null)
 
   const {
     register,
@@ -55,6 +58,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
   })
 
   const selectedType = watch('type')
+  const bankName = watch('bankName') ?? ''
 
   function toggleCurrency(currency: Currency) {
     setSelectedCurrencies((prev) => {
@@ -75,6 +79,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
         const payload: AccountCreatePayload = {
           name: values.name || values.bankName,
           bankName: values.bankName,
+          financialInstitutionId: selectedInstitution?.id ?? null,
           type: values.type,
           currency: firstCurrency,
           balance: balances[firstCurrency] ?? 0,
@@ -88,6 +93,7 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
         const payload: AccountUpdatePayload = {
           name: values.name || values.bankName,
           bankName: values.bankName,
+          financialInstitutionId: selectedInstitution?.id ?? (values.bankName === account.bankName ? account.financialInstitutionId : null),
           type: values.type,
         }
         await onSubmit(payload)
@@ -106,7 +112,16 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
             Instituição | Banco
           </label>
           <div className={isNameFieldVisible ? 'grid grid-cols-1 gap-2 sm:grid-cols-2' : 'flex gap-2'}>
-            <input id="bankName" className={`${inputClass} min-w-0 flex-1`} placeholder="Itaú" {...register('bankName')} />
+            <FinancialInstitutionAutocomplete
+              id="bankName"
+              value={bankName}
+              placeholder="Digite o nome do banco"
+              onChange={(value) => {
+                setValue('bankName', value, { shouldValidate: true })
+                if (value !== selectedInstitution?.name) setSelectedInstitution(null)
+              }}
+              onSelect={setSelectedInstitution}
+            />
             {isNameFieldVisible ? (
               <input
                 id="name"
@@ -126,6 +141,12 @@ export function AccountFormModal({ account, onClose, onSubmit }: AccountFormModa
               </button>
             )}
           </div>
+          {selectedInstitution && (
+            <div className="mt-2 flex items-center gap-2 text-xs text-ink/60">
+              <InstitutionLogo institution={selectedInstitution} />
+              <span>Instituição selecionada: {selectedInstitution.name}</span>
+            </div>
+          )}
           {errors.bankName?.message && <span className="text-xs text-expense">{errors.bankName.message}</span>}
         </div>
         <Field label="Tipo" htmlFor="type" error={errors.type?.message}>

@@ -204,7 +204,11 @@ export function DashboardPage() {
                         to={`/transacoes?accountBalanceUuids=${account.balances.map((balance) => balance.uuid).join(',')}`}
                         className="flex items-center gap-3 border-b border-ink/[.06] py-2.5 last:border-b-0 hover:opacity-80"
                       >
-                        <BankLogo name={account.bankName} size={36} />
+                        <BankLogo
+                          name={account.bankName}
+                          logoUrl={account.financialInstitutionLogoUrl}
+                          size={36}
+                        />
                         <div className="min-w-0 flex-1">
                           <p className="text-[14.5px] font-semibold text-ink">{account.name}</p>
                           <p className="mt-0.5 text-xs text-ink/60">{accountTypeLabels[account.type]}</p>
@@ -307,7 +311,7 @@ export function DashboardPage() {
                   {cardInvoices.map(({ card, total, availableLimit, dueDate }) => (
                     <div key={card.uuid} className="rounded-2xl bg-ink/[.04] p-3.5">
                       <div className="mb-3 flex items-center gap-2.5">
-                        <BankLogo name={card.issuer} size={36} />
+                        <BankLogo name={card.issuer} logoUrl={card.financialInstitutionLogoUrl} size={36} />
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[14.5px] font-semibold text-ink">{card.name}</p>
                           <p className="mt-0.5 text-xs text-ink/60">Cartão manual</p>

@@ -79,7 +79,7 @@ export function BankImportPage() {
         value: card.uuid,
         label: card.name,
         sublabel: 'Cartão de crédito',
-        leading: <BankLogo name={card.issuer} size={22} />,
+        leading: <BankLogo name={card.issuer} logoUrl={card.financialInstitutionLogoUrl} size={22} />,
       })),
     [creditCardsQuery.data],
   )

@@ -178,7 +178,7 @@ export function CreditCardInvoicePage() {
       </Link>
 
       <div className="flex flex-wrap items-center gap-3">
-        <BankLogo name={card.issuer} size={40} />
+        <BankLogo name={card.issuer} logoUrl={card.financialInstitutionLogoUrl} size={40} />
         <div className="min-w-0 flex-1">
           <h1 className="font-heading text-xl font-semibold text-ink">Fatura {card.name}</h1>
           <p className="text-[13px] text-ink/60">

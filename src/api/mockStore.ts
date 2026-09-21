@@ -228,6 +228,8 @@ export const mockAccounts = {
       uuid: uuid(),
       name: payload.name,
       bankName: payload.bankName,
+      financialInstitutionId: payload.financialInstitutionId ?? null,
+      financialInstitutionLogoUrl: null,
       type: payload.type,
       balances: [{ uuid: uuid(), currency: payload.currency, balance: payload.balance }],
     }
@@ -298,6 +300,8 @@ export const mockCreditCards = {
     const card: CreditCard = {
       uuid: uuid(),
       ...payload,
+      financialInstitutionId: payload.financialInstitutionId ?? null,
+      financialInstitutionLogoUrl: null,
       availableLimit: payload.creditLimit,
       currentInvoiceTotal: 0,
       previousBalance: 0,

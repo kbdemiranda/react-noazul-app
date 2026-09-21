@@ -71,7 +71,7 @@ export function CreditCardsPage() {
         {cardsQuery.data?.map((card) => (
           <Card key={card.uuid} className="flex flex-col gap-3">
             <div className="flex items-center gap-2.5">
-              <BankLogo name={card.issuer} size={36} />
+              <BankLogo name={card.issuer} logoUrl={card.financialInstitutionLogoUrl} size={36} />
               <div className="min-w-0 flex-1">
                 <p className="truncate font-heading text-[15px] text-ink">{card.name}</p>
                 <Badge variant="outline">
